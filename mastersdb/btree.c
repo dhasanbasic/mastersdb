@@ -36,6 +36,8 @@
  * 20.03.2010
  *  Finished B-tree deletion.
  *  Fixed a bug in BtreeInsert (root split)
+ * 23.03.2010
+ *  Updated code to reflect changes in the header file (utility macros etc.).
  */
 
 #include "btree.h"
@@ -79,7 +81,7 @@ Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,
  *  NODE_SIZE = (2 * T) * (RECORD_SIZE + 4) - RECORD_SIZE + 4
  *
  */
-BtreeNode *BtreeAllocateNode(const Btree *tree)
+BtreeNode *BtreeAllocateNode(Btree *tree)
 {
 
   BtreeNode *node = (BtreeNode*) malloc(sizeof(BtreeNode));
@@ -102,8 +104,7 @@ BtreeNode *BtreeAllocateNode(const Btree *tree)
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-byte* BtreeSearchRecursive(const byte* key, const BtreeNode* node,
-    const Btree* t)
+byte* BtreeSearchRecursive(const byte* key, const BtreeNode* node, Btree* t)
 {
   BtreeNode* next = NULL;
   byte* res = NULL;
@@ -148,7 +149,7 @@ byte* BtreeSearchRecursive(const byte* key, const BtreeNode* node,
 /*
  * B-tree search function
  */
-byte* BtreeSearch(const byte* key, const Btree* t)
+byte* BtreeSearch(const byte* key, Btree* t)
 {
   if (t->root != NULL)
   {
@@ -164,7 +165,7 @@ byte* BtreeSearch(const byte* key, const Btree* t)
  * Internal function for splitting a full node
  */
 void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position,
-    const Btree* t)
+    Btree* t)
 {
   BtreeNode* right = BtreeAllocateNode(t);
 
@@ -209,7 +210,7 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position,
 /*
  * Recursive B-tree insertion (internal, not visible to the programmer)
  */
-int BtreeInsertRecursive(const byte* record, BtreeNode* node, const Btree* t)
+int BtreeInsertRecursive(const byte* record, BtreeNode* node, Btree* t)
 {
   BtreeNode* next = NULL;
   uint16 i = 0;
@@ -282,12 +283,13 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node, const Btree* t)
  */
 int BtreeInsert(const byte* record, Btree* t)
 {
+  BtreeNode* root = t->root;
   BtreeNode* newRoot = NULL;
 
-  if (t->root != NULL)
+  if (root != NULL)
   {
     /* root node is full, split it */
-    if (*t->root->record_count == t->meta.t * 2 - 1)
+    if (*root->record_count == t->meta.t * 2 - 1)
     {
       newRoot = BtreeAllocateNode(t);
 
@@ -297,11 +299,11 @@ int BtreeInsert(const byte* record, Btree* t)
       newRoot->position = 0L;
       *newRoot->is_leaf = 0;
 
-      BtreeSplitNode(t->root, newRoot, 0, t);
+      BtreeSplitNode(root, newRoot, 0, t);
 
       /* free up used resources */
-      free(t->root->data);
-      free(t->root);
+      free(root->data);
+      free(root);
       t->root = newRoot;
     }
     return BtreeInsertRecursive(record, t->root, t);
@@ -657,14 +659,15 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
  */
 int BtreeDelete(const byte* key, Btree* t)
 {
-  if (t->root != NULL)
+  BtreeNode* root = t->root;
+  if (root != NULL)
   {
     /* root node is empty */
-    if (*t->root->record_count == 0)
+    if (*root->record_count == 0)
     {
       return BTREE_DELETE_EMPTYROOT;
     }
-    return BtreeDeleteRecursive(key, t->root, t);
+    return BtreeDeleteRecursive(key, root, t);
   }
   else
   {
