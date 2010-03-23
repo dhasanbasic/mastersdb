@@ -107,12 +107,10 @@ int main(int argc, char **argv)
   t->root = ReadNode(1, t);
   *(((BtreeNode*) t->root)->is_leaf) = 1;
 
-  while (*records != 'F')
+  while (*records != 'G')
   {
     BtreeInsert(records++, t);
   }
-
-  BtreeInsert(records++, t);
 
   do
   {

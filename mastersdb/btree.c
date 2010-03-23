@@ -110,7 +110,7 @@ byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
   byte* res = NULL;
   uint16 i = 0;
 
-  while (i < BT_COUNT(node) && BT_KEYCMP(key,>,BT_KEY(node,i),node))
+  while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i),node))
   {
     i++;
   }
@@ -118,10 +118,9 @@ byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
   /* key/record found? */
   if (i < BT_COUNT(node))
   {
-    if (BT_KEYCMP(key,==,BT_KEY(node,i),node))
+    if (BT_KEYCMP(key, == ,BT_KEY(node,i),node))
     {
       res = (byte*) malloc(BT_RECSIZE(node));
-
       memcpy(res, BT_RECORD(node,i), BT_RECSIZE(node));
       return res;
     }
@@ -169,32 +168,29 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
   /* copy the second half parts of the records and child pointers from the
    * left child node to the new right child node
    */
-  memcpy(right->records, left->records + left->T->meta.t * left->T->meta.record_size,
-      (left->T->meta.t - 1) * left->T->meta.record_size);
 
-  memcpy(right->children, &left->children[left->T->meta.t], left->T->meta.t * sizeof(ulong));
+  BT_COPYRECORDS(right, 0, left, BT_ORDER(left), BT_ORDER(left) - 1);
+  BT_COPYCHILDREN(right, 0, left, BT_ORDER(left), BT_ORDER(left));
 
   *right->is_leaf = *left->is_leaf;
-  *right->record_count = left->T->meta.t - 1;
   right->position = 0L;
+  BT_COUNT(right) = BT_ORDER(left) - 1;
 
   /* update the left child node */
-  *left->record_count = *right->record_count;
+  BT_COUNT(left) = BT_COUNT(right);
 
   /* move the median record to the parent node, make space for it if needed */
-  if (position < (*parent->record_count - 1))
+  if (position < (BT_COUNT(parent) - 1))
   {
-    memmove(parent->records + (position + 1) * parent->T->meta.record_size,
-        parent->records + position * parent->T->meta.record_size,
-        (*parent->record_count - position) * parent->T->meta.record_size);
-
-    memmove(&parent->children[position + 2], &parent->children[position + 1],
-        (*parent->record_count - position) * sizeof(ulong));
+    BT_MOVERECORDS(parent, position + 1, position, BT_COUNT(parent) - position);
+    BT_MOVECHILDREN(parent, position + 2, position + 1,
+        BT_COUNT(parent) - position);
   }
-  memcpy(parent->records + position * parent->T->meta.record_size, left->records
-      + (parent->T->meta.t - 1) * parent->T->meta.record_size, parent->T->meta.record_size);
 
-  *parent->record_count = (*parent->record_count + 1);
+  memcpy(BT_RECORD(parent, position), BT_RECORD(left,BT_ORDER(left) - 1),
+      BT_RECSIZE(parent));
+
+  BT_COUNT(parent) = BT_COUNT(parent) + 1;
 
   /* save all changes */
   parent->children[position] = parent->T->WriteNode(left, parent->T);
@@ -209,63 +205,57 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
  */
 int BtreeInsertRecursive(const byte* record, BtreeNode* node)
 {
-  Btree* t = node->T;
   BtreeNode* next = NULL;
   uint16 i = 0;
   int result = 0;
 
-  while (i < *node->record_count && t->CompareKeys(record
-      + t->meta.key_position, node->records + i * t->meta.record_size
-      + t->meta.key_position, t->meta.key_size) > 0)
+  while (i < BT_COUNT(node) &&
+      BT_KEYCMP(record + BT_KEYPOS(node), > ,BT_KEY(node,i), node))
   {
     i++;
   }
 
   /* key already exists? */
-  if (i < *node->record_count)
+  if (i < BT_COUNT(node))
   {
-    if (t->CompareKeys(record + t->meta.key_position, node->records + i
-        * t->meta.record_size + t->meta.key_position, t->meta.key_size) == 0)
+    if (BT_KEYCMP(record + BT_KEYPOS(node), == ,BT_KEY(node,i), node))
     {
       return BTREE_INSERT_COLLISION;
     }
   }
 
   /* if the current node is a leaf, insert the record into it */
-  if (*node->is_leaf > 0)
+  if (BT_LEAF(node))
   {
     /* if needed, create space for the new record */
-    if (i < *node->record_count)
+    if (i < BT_COUNT(node))
     {
-      memmove(node->records + (i + 1) * t->meta.record_size, node->records + i
-          * t->meta.record_size, (*node->record_count - i)
-          * t->meta.record_size);
+      BT_MOVERECORDS(node, i+1, i, BT_COUNT(node) - i);
     }
-    memcpy(node->records + i * t->meta.record_size, record, t->meta.record_size);
-    *node->record_count = (*node->record_count + 1);
-    node->position = t->WriteNode(node, t);
+    memcpy(BT_RECORD(node, i), record, BT_RECSIZE(node));
+    BT_COUNT(node) = BT_COUNT(node) + 1;
+    node->position = node->T->WriteNode(node, node->T);
     return BTREE_INSERT_SUCCEEDED;
   }
 
   /* if node is an internal node recurse to the subtree */
   else
   {
-    next = t->ReadNode(node->children[i], t);
+    next = node->T->ReadNode(node->children[i], node->T);
 
     /* child node is full, split it */
-    if (*next->record_count == t->meta.t * 2 - 1)
+    if (BT_COUNT(next) == BT_ORDER(node) * 2 - 1)
     {
       BtreeSplitNode(next, node, i);
 
       /* the current key changed and the current subtree maybe smaller than
        * then the record's key, so determine the direction of the recursion
        * (left or right) */
-      if (t->CompareKeys(record + t->meta.key_position, node->records + i
-          * t->meta.record_size + t->meta.key_position, t->meta.key_size) > 0)
+      if (BT_KEYCMP(record + BT_KEYPOS(node), > ,BT_KEY(node,i), node))
       {
         free(next->data);
         free(next);
-        next = t->ReadNode(node->children[i + 1], t);
+        next = node->T->ReadNode(node->children[i + 1], node->T);
       }
     }
 
@@ -287,7 +277,7 @@ int BtreeInsert(const byte* record, Btree* t)
   if (root != NULL)
   {
     /* root node is full, split it */
-    if (*root->record_count == t->meta.t * 2 - 1)
+    if (BT_COUNT(root) == BT_ORDER(root) * 2 - 1)
     {
       newRoot = BtreeAllocateNode(t);
 
@@ -318,26 +308,22 @@ int BtreeInsert(const byte* record, Btree* t)
 void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
     const uint16 median)
 {
-  Btree* t = parent->T;
   /* -----------------------------------------------------------------*/
   /* update the left child node */
   /* -----------------------------------------------------------------*/
   /* copy the median key to the left child node */
-  memcpy(left->records + (t->meta.t - 1) * t->meta.record_size, parent->records
-      + median * t->meta.record_size, t->meta.record_size);
+  BT_COPYRECORDS(left, BT_ORDER(left) - 1, parent, median, 1);
 
   /* copy all records from the right child to the left child */
-  memcpy(left->records + t->meta.t * t->meta.record_size, right->records,
-      *right->record_count * t->meta.record_size);
+  BT_COPYRECORDS(left, BT_ORDER(left), right, 0, BT_COUNT(right));
 
   /* if needed, copy all child pointers from the right to the left child */
-  if (*right->is_leaf < 1)
+  if (BT_INTERNAL(right))
   {
-    memcpy(&left->children[t->meta.t], right->children, t->meta.t
-        * sizeof(ulong));
+    BT_COPYCHILDREN(left, BT_ORDER(left), right, 0, BT_ORDER(left));
   }
 
-  *left->record_count = t->meta.t * 2 - 1;
+  BT_COUNT(left) = BT_ORDER(left) * 2 - 1;
   /* -----------------------------------------------------------------*/
 
   /* -----------------------------------------------------------------*/
@@ -345,25 +331,22 @@ void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
   /* -----------------------------------------------------------------*/
 
   /* if there are records (and child pointers) to be shifted */
-  if ((*parent->record_count - median - 1) > 0)
+  if ((BT_COUNT(parent) - median - 1) > 0)
   {
     /* shift the records after the median to left by one */
-    memmove(parent->records + median * t->meta.record_size, parent->records
-        + (median + 1) * t->meta.record_size, (*parent->record_count - median
-        - 1) * t->meta.record_size);
+    BT_MOVERECORDS(parent, median, median+1, BT_COUNT(parent) - median - 1);
 
     /* shift the child pointers after right child to left by one */
-    memmove(&parent->children[median + 1], &parent->children[median + 2],
-        (*parent->record_count - median - 1) * sizeof(ulong));
+    BT_MOVECHILDREN(parent, median+1, median+2, BT_COUNT(parent) - median - 1);
   }
 
-  *parent->record_count = (*parent->record_count - 1);
+  BT_COUNT(parent) = BT_COUNT(parent) - 1;
   /* -----------------------------------------------------------------*/
 
   /* save the changes */
-  parent->children[median] = t->WriteNode(left, t);
-  parent->position = t->WriteNode(parent, t);
-  t->DeleteNode(right, t);
+  parent->children[median] = parent->T->WriteNode(left, parent->T);
+  parent->position = parent->T->WriteNode(parent, parent->T);
+  parent->T->DeleteNode(right, parent->T);
   free(right->data);
   free(right);
 }

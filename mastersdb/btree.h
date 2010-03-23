@@ -137,10 +137,10 @@ int BtreeDelete(const byte* key, Btree* t);
 #define BT_COUNT(node)      (*node->record_count)
 
 /* B-tree node meta-data shortcuts */
-#define BT_KEYSIZE(node)    (node->T->meta.key_size)
-#define BT_KEYPOS(node)     (node->T->meta.key_position)
-#define BT_RECSIZE(node)    (node->T->meta.record_size)
-#define BT_ORDER(node)      (node->T->meta.t)
+#define BT_KEYSIZE(node)    node->T->meta.key_size
+#define BT_KEYPOS(node)     node->T->meta.key_position
+#define BT_RECSIZE(node)    node->T->meta.record_size
+#define BT_ORDER(node)      node->T->meta.t
 
 /* Returns pointers to the first or last records of a node */
 #define BT_LAST(node)       (node->records)
@@ -152,19 +152,19 @@ int BtreeDelete(const byte* key, Btree* t);
   (node->T->CompareKeys((k1),(k2),BT_KEYSIZE(node)) op 0)
 
 /* Copies N records between two nodes */
-#define BT_COPYRECORDS(D,dest,S,src,N) \
+#define BT_COPYRECORDS(dest,D,src,S,N) \
   memcpy(BT_RECORD(dest,(D)),BT_RECORD(src,(S)),(N)*BT_RECSIZE(src))
 
 /* Moves N records in a node */
-#define BT_MOVERECORDS(D,S,node,N) \
+#define BT_MOVERECORDS(node,D,S,N) \
   memmove(BT_RECORD(node,(D)),BT_RECORD(node,(S)),(N)*BT_RECSIZE(node))
 
 /* Copies N child pointers between two nodes */
-#define BT_COPYCHILDREN(D,dest,S,src,N) \
+#define BT_COPYCHILDREN(dest,D,src,S,N) \
   memcpy(&dest->children[(D)],&src->children[(S)],(N)*sizeof(ulong))
 
 /* Moves N child pointers in a node */
-#define BT_MOVECHILDREN(D,S,node,N) \
+#define BT_MOVECHILDREN(node,D,S,N) \
   memmove(&node->children[(D)],&node->children[(S)],(N)*sizeof(ulong))
 
 
