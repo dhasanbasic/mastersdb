@@ -124,25 +124,32 @@ int BtreeDelete(const byte* key, Btree* t);
  ************************************************/
 
 /* Returns a pointer to the i-th record of a node */
-#define BT_RECORD(node,i)   (node->records + (i) * node->T->meta.record_size)
+#define BT_RECORD(node,i)   (node->records + (i) * BT_RECSIZE(node))
 
 /* Returns a pointer to the i-th key in a node */
-#define BT_KEY(node,i)      (BT_RECORD(node,i) + node->T->meta.key_position)
+#define BT_KEY(node,i)      (BT_RECORD(node,i) + BT_KEYPOS(node))
 
 /* Tests whether the given node is a leaf or internal node */
-#define BT_LEAF(node)       (*node->isLeaf > 0)
-#define BT_INTERNAL(node)   (*node->isLeaf < 1)
+#define BT_LEAF(node)       (*node->is_leaf > 0)
+#define BT_INTERNAL(node)   (*node->is_leaf < 1)
 
 /* Returns the number of records in a node */
-#define BT_COUNT(node)      (*node->recordCount)
+#define BT_COUNT(node)      (*node->record_count)
+
+/* B-tree node meta-data shortcuts */
+#define BT_KEYSIZE(node)    (node->T->meta.key_size)
+#define BT_KEYPOS(node)     (node->T->meta.key_position)
+#define BT_RECSIZE(node)    (node->T->meta.record_size)
+#define BT_ORDER(node)      (node->T->meta.t)
 
 /* Returns pointers to the first or last records of a node */
 #define BT_LAST(node)       (node->records)
-#define BT_FIRST(node)      (node->records + (*node->recordCount - 1) * \
-                             node->T->meta.record_size)
+#define BT_FIRST(node)      (node->records + (BT_COUNT(node) - 1) * \
+                             BT_RECSIZE(node))
 
 /* Tests whether the left key is greater, less or equal than the right one */
-#define BT_LESS(k1,k2,T)    (T->CompareKeys((k1),(k2),T->meta.key_size) < 0)
+#define BT_KEYCMP(k1,op,k2,node) \
+  (node->T->CompareKeys((k1),(k2),BT_KEYSIZE(node)) op 0)
 
 /**************************************************/
 

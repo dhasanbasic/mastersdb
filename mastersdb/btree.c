@@ -95,7 +95,7 @@ BtreeNode *BtreeAllocateNode(Btree *tree)
   node->is_leaf = node->record_count + 1;
   node->children = (ulong*) (node->is_leaf + 1);
   node->records = (byte*) (node->children + tree->meta.t * 2);
-
+  node->T = tree;
   node->position = 0L;
 
   return node;
@@ -104,41 +104,39 @@ BtreeNode *BtreeAllocateNode(Btree *tree)
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-byte* BtreeSearchRecursive(const byte* key, const BtreeNode* node, Btree* t)
+byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
 {
   BtreeNode* next = NULL;
   byte* res = NULL;
   uint16 i = 0;
 
-  while (i < *node->record_count && t->CompareKeys(key, node->records + i
-      * t->meta.record_size + t->meta.key_position, t->meta.key_size) > 0)
+  while (i < BT_COUNT(node) && BT_KEYCMP(key,>,BT_KEY(node,i),node))
   {
     i++;
   }
 
   /* key/record found? */
-  if (i < *node->record_count)
+  if (i < BT_COUNT(node))
   {
-    if (t->CompareKeys(key, node->records + i * t->meta.record_size
-        + t->meta.key_position, t->meta.key_size) == 0)
+    if (BT_KEYCMP(key,==,BT_KEY(node,i),node))
     {
-      res = (byte*) malloc(t->meta.record_size);
-      memcpy(res, node->records + i * t->meta.record_size
-          + t->meta.key_position, t->meta.record_size);
+      res = (byte*) malloc(node->T->meta.record_size);
+      memcpy(res, node->records + i * node->T->meta.record_size
+          + node->T->meta.key_position, node->T->meta.record_size);
       return res;
     }
   }
 
   /* if node is a leaf, search for the key and return NULL if not found */
-  if (*node->is_leaf > 0)
+  if (BT_LEAF(node))
   {
     res = NULL;
   }
   /* if node is an internal node, search for the key or recurse to subtree */
   else
   {
-    next = t->ReadNode(node->children[i], t);
-    res = BtreeSearchRecursive(key, next, t);
+    next = node->T->ReadNode(node->children[i], node->T);
+    res = BtreeSearchRecursive(key, next);
     free(next->data);
     free(next);
   }
@@ -153,7 +151,7 @@ byte* BtreeSearch(const byte* key, Btree* t)
 {
   if (t->root != NULL)
   {
-    return BtreeSearchRecursive(key, t->root, t);
+    return BtreeSearchRecursive(key, t->root);
   }
   else
   {
@@ -164,21 +162,20 @@ byte* BtreeSearch(const byte* key, Btree* t)
 /*
  * Internal function for splitting a full node
  */
-void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position,
-    Btree* t)
+void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
 {
-  BtreeNode* right = BtreeAllocateNode(t);
+  BtreeNode* right = BtreeAllocateNode(left->T);
 
   /* copy the second half parts of the records and child pointers from the
    * left child node to the new right child node
    */
-  memcpy(right->records, left->records + t->meta.t * t->meta.record_size,
-      (t->meta.t - 1) * t->meta.record_size);
+  memcpy(right->records, left->records + left->T->meta.t * left->T->meta.record_size,
+      (left->T->meta.t - 1) * left->T->meta.record_size);
 
-  memcpy(right->children, &left->children[t->meta.t], t->meta.t * sizeof(ulong));
+  memcpy(right->children, &left->children[left->T->meta.t], left->T->meta.t * sizeof(ulong));
 
   *right->is_leaf = *left->is_leaf;
-  *right->record_count = t->meta.t - 1;
+  *right->record_count = left->T->meta.t - 1;
   right->position = 0L;
 
   /* update the left child node */
@@ -187,22 +184,22 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position,
   /* move the median record to the parent node, make space for it if needed */
   if (position < (*parent->record_count - 1))
   {
-    memmove(parent->records + (position + 1) * t->meta.record_size,
-        parent->records + position * t->meta.record_size,
-        (*parent->record_count - position) * t->meta.record_size);
+    memmove(parent->records + (position + 1) * parent->T->meta.record_size,
+        parent->records + position * parent->T->meta.record_size,
+        (*parent->record_count - position) * parent->T->meta.record_size);
 
     memmove(&parent->children[position + 2], &parent->children[position + 1],
         (*parent->record_count - position) * sizeof(ulong));
   }
-  memcpy(parent->records + position * t->meta.record_size, left->records
-      + (t->meta.t - 1) * t->meta.record_size, t->meta.record_size);
+  memcpy(parent->records + position * parent->T->meta.record_size, left->records
+      + (parent->T->meta.t - 1) * parent->T->meta.record_size, parent->T->meta.record_size);
 
   *parent->record_count = (*parent->record_count + 1);
 
   /* save all changes */
-  parent->children[position] = t->WriteNode(left, t);
-  parent->children[position + 1] = t->WriteNode(right, t);
-  parent->position = t->WriteNode(parent, t);
+  parent->children[position] = parent->T->WriteNode(left, parent->T);
+  parent->children[position + 1] = parent->T->WriteNode(right, parent->T);
+  parent->position = parent->T->WriteNode(parent, parent->T);
   free(right->data);
   free(right);
 }
@@ -210,8 +207,9 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position,
 /*
  * Recursive B-tree insertion (internal, not visible to the programmer)
  */
-int BtreeInsertRecursive(const byte* record, BtreeNode* node, Btree* t)
+int BtreeInsertRecursive(const byte* record, BtreeNode* node)
 {
+  Btree* t = node->T;
   BtreeNode* next = NULL;
   uint16 i = 0;
   int result = 0;
@@ -257,7 +255,7 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node, Btree* t)
     /* child node is full, split it */
     if (*next->record_count == t->meta.t * 2 - 1)
     {
-      BtreeSplitNode(next, node, i, t);
+      BtreeSplitNode(next, node, i);
 
       /* the current key changed and the current subtree maybe smaller than
        * then the record's key, so determine the direction of the recursion
@@ -271,7 +269,7 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node, Btree* t)
       }
     }
 
-    result = BtreeInsertRecursive(record, next, t);
+    result = BtreeInsertRecursive(record, next);
     free(next->data);
     free(next);
     return result;
@@ -299,14 +297,14 @@ int BtreeInsert(const byte* record, Btree* t)
       newRoot->position = 0L;
       *newRoot->is_leaf = 0;
 
-      BtreeSplitNode(root, newRoot, 0, t);
+      BtreeSplitNode(root, newRoot, 0);
 
       /* free up used resources */
       free(root->data);
       free(root);
       t->root = newRoot;
     }
-    return BtreeInsertRecursive(record, t->root, t);
+    return BtreeInsertRecursive(record, t->root);
   }
   else
   {
@@ -318,8 +316,9 @@ int BtreeInsert(const byte* record, Btree* t)
  * Internal function for merging two child nodes with median from parent
  */
 void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
-    const uint16 median, const Btree* t)
+    const uint16 median)
 {
+  Btree* t = parent->T;
   /* -----------------------------------------------------------------*/
   /* update the left child node */
   /* -----------------------------------------------------------------*/
@@ -372,8 +371,9 @@ void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
 /*
  * Internal recursive B-tree deletion function
  */
-int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
+int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
 {
+  Btree* t = node->T;
   BtreeNode* left = NULL;
   BtreeNode* right = NULL;
   BtreeNode* next = NULL;
@@ -423,7 +423,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
         node->position = t->WriteNode(node, t);
 
         result = BtreeDeleteRecursive(left->records + (*left->record_count - 1)
-            * t->meta.record_size + t->meta.key_position, left, t);
+            * t->meta.record_size + t->meta.key_position, left);
 
         free(left->data);
         free(left);
@@ -444,7 +444,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
         node->position = t->WriteNode(node, t);
 
         result = BtreeDeleteRecursive(right->records + t->meta.key_position,
-            right, t);
+            right);
 
         free(right->data);
         free(right);
@@ -457,9 +457,9 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
       /* If both the left and right child nodes contains T - 1 keys,
        * merge them with the key to be deleted as the median key
        */
-      BtreeMergeNodes(left, right, node, i, t);
+      BtreeMergeNodes(left, right, node, i);
 
-      result = BtreeDeleteRecursive(key, left, t);
+      result = BtreeDeleteRecursive(key, left);
       free(left->data);
       free(left);
       return result;
@@ -593,7 +593,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
         if (left != NULL)
         {
 
-          BtreeMergeNodes(left, next, node, i, t);
+          BtreeMergeNodes(left, next, node, i);
 
           /* SPECIAL CASE: root of B-tree became empty */
           if (*node->record_count > 0)
@@ -620,7 +620,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
         }
         else
         {
-          BtreeMergeNodes(next, right, node, i, t);
+          BtreeMergeNodes(next, right, node, i);
 
           /* SPECIAL CASE: root of B-tree became empty */
           if (*node->record_count > 0)
@@ -643,7 +643,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node, Btree* t)
 
       BTREE_DELETE_RECURSE:
 
-      result = BtreeDeleteRecursive(key, next, t);
+      result = BtreeDeleteRecursive(key, next);
       if (next != t->root)
       {
         free(next->data);
@@ -667,7 +667,7 @@ int BtreeDelete(const byte* key, Btree* t)
     {
       return BTREE_DELETE_EMPTYROOT;
     }
-    return BtreeDeleteRecursive(key, root, t);
+    return BtreeDeleteRecursive(key, root);
   }
   else
   {
