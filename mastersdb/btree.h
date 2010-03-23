@@ -151,6 +151,23 @@ int BtreeDelete(const byte* key, Btree* t);
 #define BT_KEYCMP(k1,op,k2,node) \
   (node->T->CompareKeys((k1),(k2),BT_KEYSIZE(node)) op 0)
 
+/* Copies N records between two nodes */
+#define BT_COPYRECORDS(D,dest,S,src,N) \
+  memcpy(BT_RECORD(dest,(D)),BT_RECORD(src,(S)),(N)*BT_RECSIZE(src))
+
+/* Moves N records in a node */
+#define BT_MOVERECORDS(D,S,node,N) \
+  memmove(BT_RECORD(node,(D)),BT_RECORD(node,(S)),(N)*BT_RECSIZE(node))
+
+/* Copies N child pointers between two nodes */
+#define BT_COPYCHILDREN(D,dest,S,src,N) \
+  memcpy(&dest->children[(D)],&src->children[(S)],(N)*sizeof(ulong))
+
+/* Moves N child pointers in a node */
+#define BT_MOVECHILDREN(D,S,node,N) \
+  memmove(&node->children[(D)],&node->children[(S)],(N)*sizeof(ulong))
+
+
 /**************************************************/
 
 #endif

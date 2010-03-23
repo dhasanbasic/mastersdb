@@ -88,6 +88,7 @@ int main(int argc, char **argv)
 {
   int i = 0;
   byte* buffer = (byte*) malloc(128);
+  byte* searchResult = NULL;
   BtreeNode* node;
 
   Btree* t = BtreeCreateTree(BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
@@ -115,7 +116,7 @@ int main(int argc, char **argv)
 
   do
   {
-    printf("Enter command [(i)nsert],(p)rint,(q)uit] >> ");
+    printf("Enter command [(i)nsert,(d)elete,(s)earch,(p)rint,(q)uit] >> ");
     fgets(buffer, 128, stdin);
     switch (buffer[0])
     {
@@ -162,6 +163,19 @@ int main(int argc, char **argv)
             break;
         }
         buffer[0] = 'd';
+        break;
+      case 's':
+        printf("*** SEARCH - enter record: ");
+        fgets(buffer, 128, stdin);
+        searchResult = BtreeSearch(&buffer[0], t);
+        if (searchResult != NULL) {
+          printf("*** FOUND! (%c)\n", *searchResult);
+          free(searchResult);
+          searchResult = NULL;
+        } else {
+          printf("*** NOT FOUND!\n");
+        }
+        buffer[0] = 's';
         break;
       case 'q':
         printf("*** QUIT\n");

@@ -120,9 +120,9 @@ byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
   {
     if (BT_KEYCMP(key,==,BT_KEY(node,i),node))
     {
-      res = (byte*) malloc(node->T->meta.record_size);
-      memcpy(res, node->records + i * node->T->meta.record_size
-          + node->T->meta.key_position, node->T->meta.record_size);
+      res = (byte*) malloc(BT_RECSIZE(node));
+
+      memcpy(res, BT_RECORD(node,i), BT_RECSIZE(node));
       return res;
     }
   }
