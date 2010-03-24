@@ -22,22 +22,13 @@
  * ----------------
  * 28.02.2010
  *    Initial version of file.
- * 02.03.2010
- *  Implemented B-tree search.
- * 07.03.2010
- *  Started implementation of B-tree insertion.
- * 14.03.2010
- *  Implemented internal BtreeSplitNode function.
- * 17.03.2010
- *  Finished B-tree insertion.
- *  Started B-tree deletion.
- * 20.03.2010
- *  Finished B-tree deletion.
- *  Fixed a bug in BtreeInsert (root split)
  * 22.03.2010
  *  Added utility macros for code readability improvement.
  *  The BtreeNode structure now contains a pointer to the B-tree structure
  *    (for parameter count reduction).
+ * 24.03.2010
+ *  Added forward declarations for the B-tree structures
+ *    (no void* needed anymore).
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -50,38 +41,43 @@
 typedef int (*CompareKeysPtr)(const void* key1, const void* key2,
     const size_t size);
 
+/* forward declarations of the B-tree structures */
+typedef struct BtreeMeta BtreeMeta;
+typedef struct Btree Btree;
+typedef struct BtreeNode BtreeNode;
+
 /* B-tree node retrieval function */
-typedef void* (*BtreeLoadNodePtr)(const ulong position, const void* tree);
+typedef BtreeNode* (*BtreeLoadNodePtr)(const ulong position, Btree* tree);
 
 /* B-tree node write-out function */
-typedef ulong (*BtreeWriteNodePtr)(void* node, const void* tree);
+typedef ulong (*BtreeWriteNodePtr)(BtreeNode* node, Btree* tree);
 
 /* B-tree node deletion function */
-typedef void (*BtreeDeleteNodePtr)(void* node, const void* tree);
+typedef void (*BtreeDeleteNodePtr)(BtreeNode* node, Btree* tree);
 
 /* B-tree node meta-data */
-typedef struct NodeMeta
+struct BtreeMeta
 {
   uint16 t;               /* B-tree order (minimal children count)  */
   uint16 record_size;     /* size of a record                       */
   uint16 key_size;        /* size of the primary key                */
   uint16 key_position;    /* position of the primary key            */
-} BtreeNodeMeta;
+};
 
 /* B-tree structure */
-typedef struct
+struct Btree
 {
-  BtreeNodeMeta meta;             /* node metadata                           */
-  void *root;                     /* pointer to root node (preloaded)        */
+  BtreeMeta meta;             /* node metadata                           */
+  BtreeNode* root;                     /* pointer to root node (preloaded)        */
   uint16 nodeSize;                /* size of a node                          */
   CompareKeysPtr CompareKeys;     /* pointer to key comparison function      */
   BtreeLoadNodePtr ReadNode;      /* node retrieval implementation           */
   BtreeWriteNodePtr WriteNode;    /* node write-out implementation           */
   BtreeDeleteNodePtr DeleteNode;  /* node deletion implementation            */
-} Btree;
+};
 
 /* B-tree node structure */
-typedef struct
+struct BtreeNode
 {
   Btree* T;               /* pointer to the B-tree                  */
   byte *data;             /* raw data of the node                   */
@@ -90,7 +86,7 @@ typedef struct
   ulong *children;        /* pointer to child pointer array         */
   byte *records;          /* pointer to records                     */
   ulong position;         /* position of node (data file)           */
-} BtreeNode;
+};
 
 /* B-tree allocation and initialization */
 Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,

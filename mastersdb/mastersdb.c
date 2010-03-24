@@ -14,9 +14,8 @@
 byte* node_data = NULL;
 uint16 nodeCount = 0;
 
-void* ReadNode(const ulong position, const void* t)
+BtreeNode* ReadNode(const ulong position, Btree* tree)
 {
-  Btree* tree = (Btree*) t;
   ulong node_size = 2 * tree->meta.t * (tree->meta.record_size + 4)
       - tree->meta.record_size + 4;
   BtreeNode* node = BtreeAllocateNode(tree);
@@ -25,10 +24,8 @@ void* ReadNode(const ulong position, const void* t)
   return node;
 }
 
-ulong WriteNode(void* nodeptr, const void* t)
+ulong WriteNode(BtreeNode* node, Btree* tree)
 {
-  Btree* tree = (Btree*) t;
-  BtreeNode* node = nodeptr;
   ulong node_size = 2 * tree->meta.t * (tree->meta.record_size + 4)
       - tree->meta.record_size + 4;
   if (node->position > 0L)
@@ -44,12 +41,10 @@ ulong WriteNode(void* nodeptr, const void* t)
   return node->position;
 }
 
-void DeleteNode(void* nodeptr, const void* t)
+void DeleteNode(BtreeNode* node, Btree* tree)
 {
-  Btree* tree = (Btree*) t;
-  BtreeNode* node = nodeptr;
   memset(node->data, 0, tree->nodeSize);
-  node->position = WriteNode(node, t);
+  node->position = WriteNode(node, tree);
 }
 
 void PrintNode(const BtreeNode* node, const Btree* tree)

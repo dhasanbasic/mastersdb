@@ -62,7 +62,7 @@ Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,
   tree->meta.record_size = record_size;
   tree->meta.key_size = key_size;
   tree->meta.key_position = key_position;
-  tree->nodeSize = 2 * tree->meta.t * (tree->meta.record_size + 4)
+  tree->nodeSize = (tree->meta.t << 1) * (tree->meta.record_size + 4)
       - tree->meta.record_size + 4;
 
   return tree;
@@ -94,7 +94,7 @@ BtreeNode *BtreeAllocateNode(Btree *tree)
   node->record_count = (uint16*) node->data;
   node->is_leaf = node->record_count + 1;
   node->children = (ulong*) (node->is_leaf + 1);
-  node->records = (byte*) (node->children + tree->meta.t * 2);
+  node->records = (byte*) (node->children + (tree->meta.t << 1));
   node->T = tree;
   node->position = 0L;
 
@@ -244,7 +244,7 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node)
     next = node->T->ReadNode(node->children[i], node->T);
 
     /* child node is full, split it */
-    if (BT_COUNT(next) == BT_ORDER(node) * 2 - 1)
+    if (BT_COUNT(next) == (BT_ORDER(node) << 1) - 1)
     {
       BtreeSplitNode(next, node, i);
 
@@ -271,27 +271,26 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node)
  */
 int BtreeInsert(const byte* record, Btree* t)
 {
-  BtreeNode* root = t->root;
   BtreeNode* newRoot = NULL;
 
-  if (root != NULL)
+  if (t->root != NULL)
   {
-    /* root node is full, split it */
-    if (BT_COUNT(root) == BT_ORDER(root) * 2 - 1)
+    /* t->root node is full, split it */
+    if (BT_COUNT(t->root) == (BT_ORDER(t->root) << 1) - 1)
     {
       newRoot = BtreeAllocateNode(t);
 
-      /* the new root will be an internal node, while the old root
+      /* the new t->root will be an internal node, while the old t->root
        * will become a leaf node and get a right sibling
        */
       newRoot->position = 0L;
       *newRoot->is_leaf = 0;
 
-      BtreeSplitNode(root, newRoot, 0);
+      BtreeSplitNode(t->root, newRoot, 0);
 
       /* free up used resources */
-      free(root->data);
-      free(root);
+      free(t->root->data);
+      free(t->root);
       t->root = newRoot;
     }
     return BtreeInsertRecursive(record, t->root);
@@ -323,7 +322,7 @@ void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
     BT_COPYCHILDREN(left, BT_ORDER(left), right, 0, BT_ORDER(left));
   }
 
-  BT_COUNT(left) = BT_ORDER(left) * 2 - 1;
+  BT_COUNT(left) = (BT_ORDER(left) << 1) - 1;
   /* -----------------------------------------------------------------*/
 
   /* -----------------------------------------------------------------*/
@@ -642,15 +641,14 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
  */
 int BtreeDelete(const byte* key, Btree* t)
 {
-  BtreeNode* root = t->root;
-  if (root != NULL)
+  if (t->root != NULL)
   {
     /* root node is empty */
-    if (*root->record_count == 0)
+    if (BT_COUNT(t->root) == 0)
     {
       return BTREE_DELETE_EMPTYROOT;
     }
-    return BtreeDeleteRecursive(key, root);
+    return BtreeDeleteRecursive(key, t->root);
   }
   else
   {
