@@ -180,7 +180,7 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
   BT_COUNT(left) = BT_COUNT(right);
 
   /* move the median record to the parent node, make space for it if needed */
-  if (position < (BT_COUNT(parent) - 1))
+  if (position < BT_COUNT(parent))
   {
     BT_MOVERECORDS(parent, position + 1, position, BT_COUNT(parent) - position);
     BT_MOVECHILDREN(parent, position + 2, position + 1,
@@ -193,9 +193,9 @@ void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
   BT_COUNT(parent) = BT_COUNT(parent) + 1;
 
   /* save all changes */
-  parent->children[position] = parent->T->WriteNode(left, parent->T);
-  parent->children[position + 1] = parent->T->WriteNode(right, parent->T);
-  parent->position = parent->T->WriteNode(parent, parent->T);
+  parent->children[position] = parent->T->WriteNode(left);
+  parent->children[position + 1] = parent->T->WriteNode(right);
+  parent->position = parent->T->WriteNode(parent);
   free(right->data);
   free(right);
 }
@@ -234,7 +234,7 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node)
     }
     memcpy(BT_RECORD(node, i), record, BT_RECSIZE(node));
     BT_COUNT(node) = BT_COUNT(node) + 1;
-    node->position = node->T->WriteNode(node, node->T);
+    node->position = node->T->WriteNode(node);
     return BTREE_INSERT_SUCCEEDED;
   }
 
@@ -343,9 +343,9 @@ void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
   /* -----------------------------------------------------------------*/
 
   /* save the changes */
-  parent->children[median] = parent->T->WriteNode(left, parent->T);
-  parent->position = parent->T->WriteNode(parent, parent->T);
-  parent->T->DeleteNode(right, parent->T);
+  parent->children[median] = parent->T->WriteNode(left);
+  parent->position = parent->T->WriteNode(parent);
+  parent->T->DeleteNode(right);
   free(right->data);
   free(right);
 }
@@ -355,38 +355,31 @@ void BtreeMergeNodes(BtreeNode* left, BtreeNode* right, BtreeNode* parent,
  */
 int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
 {
-  Btree* t = node->T;
   BtreeNode* left = NULL;
   BtreeNode* right = NULL;
   BtreeNode* next = NULL;
   uint16 i = 0;
   int result = 0;
 
-  while (i < *node->record_count && t->CompareKeys(key + t->meta.key_position,
-      node->records + i * t->meta.record_size + t->meta.key_position,
-      t->meta.key_size) > 0)
+  while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i), node))
   {
     i++;
   }
 
   /* key found? */
-  if (i < *node->record_count && t->CompareKeys(key + t->meta.key_position,
-      node->records + i * t->meta.record_size + t->meta.key_position,
-      t->meta.key_size) == 0)
+  if (i < BT_COUNT(node) && BT_KEYCMP(key, == ,BT_KEY(node,i), node))
   {
     /* if current node is a leaf, simply remove the record */
-    if (*node->is_leaf > 0)
+    if (BT_LEAF(node))
     {
       /* if there are records to be shifted */
-      if ((*node->record_count - i - 1) > 0)
+      if ((BT_COUNT(node) - i - 1) > 0)
       {
-        /* shift the records after the median to left by one */
-        memmove(node->records + i * t->meta.record_size, node->records
-            + (i + 1) * t->meta.record_size, (*node->record_count - i - 1)
-            * t->meta.record_size);
+        /* shift the records after the i-th record to left by one */
+        BT_MOVERECORDS(node, i, i+1, BT_COUNT(node) - i - 1);
       }
-      *node->record_count = (*node->record_count - 1);
-      node->position = t->WriteNode(node, t);
+      BT_COUNT(node) = BT_COUNT(node) - 1;
+      node->position = node->T->WriteNode(node);
     }
     /* otherwise remove the record without destroying the tree's balance */
     else
@@ -396,16 +389,14 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
        * contains at least T keys), replace the key to be deleted by
        * its PREDECESSOR
        */
-      left = t->ReadNode(node->children[i], t);
-      if (*left->record_count >= t->meta.t)
-      {
-        memcpy(node->records + i * t->meta.record_size, left->records
-            + (*left->record_count - 1) * t->meta.record_size,
-            t->meta.record_size);
-        node->position = t->WriteNode(node, t);
+      left = node->T->ReadNode(node->children[i], node->T);
 
-        result = BtreeDeleteRecursive(left->records + (*left->record_count - 1)
-            * t->meta.record_size + t->meta.key_position, left);
+      if (BT_COUNT(left) >= BT_ORDER(node))
+      {
+        BT_COPYPREDECESSOR(node, i, left);
+        node->position = node->T->WriteNode(node);
+
+        result = BtreeDeleteRecursive(BT_KEY(left, BT_COUNT(left) - 1), left);
 
         free(left->data);
         free(left);
@@ -418,15 +409,14 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
        * deleted contains at least T keys), replace the key to be deleted
        * by its SUCCESSOR
        */
-      right = t->ReadNode(node->children[i + 1], t);
-      if (*right->record_count >= t->meta.t)
-      {
-        memcpy(node->records + i * t->meta.record_size, right->records,
-            t->meta.record_size);
-        node->position = t->WriteNode(node, t);
+      right = node->T->ReadNode(node->children[i + 1], node->T);
 
-        result = BtreeDeleteRecursive(right->records + t->meta.key_position,
-            right);
+      if (BT_COUNT(right) >= BT_ORDER(node))
+      {
+        BT_COPYSUCCESSOR(node, i, right);
+        node->position = node->T->WriteNode(node);
+
+        result = BtreeDeleteRecursive(right->records + BT_KEYPOS(right), right);
 
         free(right->data);
         free(right);
@@ -451,27 +441,29 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
   else
   {
     /* if current node is leaf, the record does not exist */
-    if (*node->is_leaf > 0)
+    if (BT_LEAF(node))
     {
       return BTREE_DELETE_NOTFOUND;
     }
     /* otherwise, re-balance the tree if necessary and recurse to subtree */
     else
     {
-      next = t->ReadNode(node->children[i], t);
+      next = node->T->ReadNode(node->children[i], node->T);
 
       /* if new subtree has only T - 1 keys, re-balance the tree */
-      if (*next->record_count < t->meta.t)
+      if (BT_COUNT(next) < BT_ORDER(node))
       {
-        left = NULL;
+
+        left = right = NULL;
+
         /* if a left sibling of the subtree root node
          * exists and has a key to spare...
          */
         if (i > 0)
         {
-          left = t->ReadNode(node->children[i - 1], t);
+          left = node->T->ReadNode(node->children[i - 1], node->T);
 
-          if (*left->record_count >= t->meta.t)
+          if (BT_COUNT(left) >= BT_ORDER(node))
           {
             /* ---------------------------------------------------------- *
              * perform a rotate operation from the left sibling,          *
@@ -479,37 +471,30 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
              * ---------------------------------------------------------- */
 
             /* create space for the spared key/record */
-            memmove(next->records + t->meta.record_size, next->records,
-                (*next->record_count) * t->meta.record_size);
+            BT_MOVERECORDS(next, 1, 0, BT_COUNT(next));
 
-            /* insert the current key/record into the subtree root node */
-            memcpy(next->records, node->records + i * t->meta.record_size,
-                t->meta.record_size);
-
-            /* replace the current key/record by the last key/record
-             * from the left sibling
+            /* insert the current record into the subtree root node,
+             * and replace the current record by its predecessor
              */
-            memcpy(node->records + i * t->meta.record_size, left->records
-                + (*left->record_count - 1) * t->meta.record_size,
-                t->meta.record_size);
+            BT_COPYRECORDS(next, 0, node, i, 1);
+            BT_COPYPREDECESSOR(node, i, left);
 
             /* if the children are internal nodes, move the left
              * sibling's last child pointer to the subtree root node
              */
-            if (*next->is_leaf < 1)
+            if (BT_INTERNAL(next))
             {
-              memmove(&next->children[1], &next->children[0],
-                  (*next->record_count + 1) * sizeof(ulong));
-              next->children[0] = left->children[*left->record_count];
+              BT_MOVECHILDREN(next, 1, 0, BT_COUNT(next) + 1);
+              next->children[0] = left->children[BT_COUNT(left) + 1];
             }
 
             /* update all nodes */
-            *next->record_count = (*next->record_count + 1);
-            *left->record_count = (*left->record_count - 1);
+            BT_COUNT(next) = BT_COUNT(next) + 1;
+            BT_COUNT(left) = BT_COUNT(left) - 1;
 
-            node->children[i - 1] = t->WriteNode(left, t);
-            node->children[i] = t->WriteNode(next, t);
-            node->position = t->WriteNode(node, t);
+            node->children[i - 1] = node->T->WriteNode(left);
+            node->children[i] = node->T->WriteNode(next);
+            node->position = node->T->WriteNode(node);
 
             free(left->data);
             free(left);
@@ -521,116 +506,72 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
         /* otherwise, if the right sibling of the
          * subtree root has a key to spare...
          */
-        right = t->ReadNode(node->children[i + 1], t);
-
-        if (*right->record_count >= t->meta.t)
+        if (i < BT_COUNT(node))
         {
-          /* ---------------------------------------------------------- *
-           * perform a reverse rotate operation from the right          *
-           * sibling, through the parent node, into the subtree         *
-           * root node                                                  *
-           * ---------------------------------------------------------- */
+          right = node->T->ReadNode(node->children[i + 1], node->T);
 
-          /* insert the current key/record into the subtree root node */
-          memcpy(next->records + (*next->record_count) * t->meta.record_size,
-              node->records + i * t->meta.record_size, t->meta.record_size);
-
-          /* replace the current key/record by the first key/record
-           * from the right sibling
-           */
-          memcpy(node->records + i * t->meta.record_size, right->records,
-              t->meta.record_size);
-
-          /* if the children are internal nodes, move the right
-           * sibling's first child pointer to the subtree root node
-           */
-          if (*next->is_leaf < 1)
+          if (BT_COUNT(right) >= BT_ORDER(node))
           {
-            next->children[*next->record_count + 1] = right->children[0];
-            memmove(&right->children[0], &right->children[1],
-                (*right->record_count) * sizeof(ulong));
-          }
+            /* ---------------------------------------------------------- *
+             * perform a reverse rotate operation from the right sibling, *
+             * through the parent node, into the subtree root node        *
+             * ---------------------------------------------------------- */
 
-          /* shift all records of the right sibling to the left */
-          memmove(right->records, right->records + t->meta.record_size,
-              (*right->record_count - 1) * t->meta.record_size);
+            /* insert the current record into the subtree root node */
+            BT_COPYRECORDS(next, BT_COUNT(next), node, i, 1);
 
-          /* update all nodes */
-          *next->record_count = (*next->record_count + 1);
-          *right->record_count = (*right->record_count - 1);
+            /* replace the current record by its successor */
+            BT_COPYSUCCESSOR(node, i, right);
 
-          node->children[i + 1] = t->WriteNode(right, t);
-          node->children[i] = t->WriteNode(right, t);
-          node->position = t->WriteNode(node, t);
+            /* if the children are internal nodes, move the right
+             * sibling's first child pointer to the subtree root node
+             */
+            if (BT_INTERNAL(next))
+            {
+              next->children[BT_COUNT(next) + 2] = right->children[0];
+              BT_MOVECHILDREN(right, 0, 1, BT_COUNT(right));
+            }
 
-          free(right->data);
-          free(right);
-          /* ---------------------------------------------------------- */
-          goto BTREE_DELETE_RECURSE;
-        }
+            /* shift all records of the right sibling to left by one */
+            BT_MOVERECORDS(right, 0, 1, BT_COUNT(right) - 1);
 
-        /* if both the left and right siblings of the subtree root
-         * node contain T - 1 keys, perform a merge
-         */
-        if (left != NULL)
-        {
+            /* update all nodes */
+            BT_COUNT(next) = BT_COUNT(next) + 1;
+            BT_COUNT(right) = BT_COUNT(right) - 1;
 
-          BtreeMergeNodes(left, next, node, i);
+            node->children[i + 1] = node->T->WriteNode(right);
+            node->children[i] = node->T->WriteNode(next);
+            node->position = node->T->WriteNode(node);
 
-          /* SPECIAL CASE: root of B-tree became empty */
-          if (*node->record_count > 0)
-          {
-            if (t->CompareKeys(key, node->records + i * t->meta.record_size
-                + t->meta.key_position, t->meta.key_size) > 0)
+            if (left != NULL)
             {
               free(left->data);
               free(left);
-              next = right;
             }
-            else
-            {
-              free(right->data);
-              free(right);
-              next = left;
-            }
+            free(right->data);
+            free(right);
+            /* ---------------------------------------------------------- */
+            goto BTREE_DELETE_RECURSE;
           }
-          else
-          {
-            t->DeleteNode(node, t);
-            t->root = left;
-          }
+        }
+
+        /* otherwise, both the left and right siblings of the subtree
+         * root node contain T - 1 keys, so perform a merge where possible
+         */
+        if (left != NULL)
+        {
+          BtreeMergeNodes(left, next, node, i);
+          next = left;
         }
         else
         {
           BtreeMergeNodes(next, right, node, i);
-
-          /* SPECIAL CASE: root of B-tree became empty */
-          if (*node->record_count > 0)
-          {
-            if (t->CompareKeys(key, node->records + i * t->meta.record_size
-                + t->meta.key_position, t->meta.key_size) > 0)
-            {
-              free(next->data);
-              free(next);
-              next = t->ReadNode(node->children[i + 1], t);
-            }
-          }
-          else
-          {
-            t->DeleteNode(node, t);
-            t->root = next;
-          }
         }
       }
 
       BTREE_DELETE_RECURSE:
 
       result = BtreeDeleteRecursive(key, next);
-      if (next != t->root)
-      {
-        free(next->data);
-        free(next);
-      }
       return result;
     }
   }
@@ -641,12 +582,30 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
  */
 int BtreeDelete(const byte* key, Btree* t)
 {
+  BtreeNode *newRoot = NULL;
+
   if (t->root != NULL)
   {
-    /* root node is empty */
+    /* root node is empty and an internal node */
     if (BT_COUNT(t->root) == 0)
     {
-      return BTREE_DELETE_EMPTYROOT;
+      if (BT_INTERNAL(t->root))
+      {
+        /* the B-tree height decreases by one and the root node's
+         * only child becomes the new root node
+         */
+        newRoot = t->ReadNode(t->root->children[0], t);
+        t->DeleteNode(t->root);
+        free(t->root->data);
+        free(t->root);
+        t->root = newRoot;
+        /* continue deletion from new root node */
+        return BtreeDeleteRecursive(key, t->root);
+      }
+      else
+      {
+        return BTREE_DELETE_EMPTYROOT;
+      }
     }
     return BtreeDeleteRecursive(key, t->root);
   }

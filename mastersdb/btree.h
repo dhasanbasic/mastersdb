@@ -50,10 +50,10 @@ typedef struct BtreeNode BtreeNode;
 typedef BtreeNode* (*BtreeLoadNodePtr)(const ulong position, Btree* tree);
 
 /* B-tree node write-out function */
-typedef ulong (*BtreeWriteNodePtr)(BtreeNode* node, Btree* tree);
+typedef ulong (*BtreeWriteNodePtr)(BtreeNode* node);
 
 /* B-tree node deletion function */
-typedef void (*BtreeDeleteNodePtr)(BtreeNode* node, Btree* tree);
+typedef void (*BtreeDeleteNodePtr)(BtreeNode* node);
 
 /* B-tree node meta-data */
 struct BtreeMeta
@@ -138,11 +138,6 @@ int BtreeDelete(const byte* key, Btree* t);
 #define BT_RECSIZE(node)    node->T->meta.record_size
 #define BT_ORDER(node)      node->T->meta.t
 
-/* Returns pointers to the first or last records of a node */
-#define BT_LAST(node)       (node->records)
-#define BT_FIRST(node)      (node->records + (BT_COUNT(node) - 1) * \
-                             BT_RECSIZE(node))
-
 /* Tests whether the left key is greater, less or equal than the right one */
 #define BT_KEYCMP(k1,op,k2,node) \
   (node->T->CompareKeys((k1),(k2),BT_KEYSIZE(node)) op 0)
@@ -163,6 +158,13 @@ int BtreeDelete(const byte* key, Btree* t);
 #define BT_MOVECHILDREN(node,D,S,N) \
   memmove(&node->children[(D)],&node->children[(S)],(N)*sizeof(ulong))
 
+/* Replaces the i-th key of a node with its predecessor */
+#define BT_COPYPREDECESSOR(node,P,src) \
+  memcpy(BT_RECORD(node,(P)),BT_RECORD(src,BT_COUNT(src)-1),BT_RECSIZE(node))
+
+/* Replaces the i-th key of a node with its successor */
+#define BT_COPYSUCCESSOR(node,P,src) \
+  memcpy(BT_RECORD(node,(P)),src->records,BT_RECSIZE(node))
 
 /**************************************************/
 

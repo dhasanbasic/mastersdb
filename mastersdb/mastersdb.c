@@ -24,27 +24,25 @@ BtreeNode* ReadNode(const ulong position, Btree* tree)
   return node;
 }
 
-ulong WriteNode(BtreeNode* node, Btree* tree)
+ulong WriteNode(BtreeNode* node)
 {
-  ulong node_size = 2 * tree->meta.t * (tree->meta.record_size + 4)
-      - tree->meta.record_size + 4;
   if (node->position > 0L)
   {
-    memcpy(node_data + node->position * node_size, node->data, node_size);
+    memcpy(node_data + node->position * node->T->nodeSize, node->data, node->T->nodeSize);
   }
   else
   {
     node->position = ++nodeCount;
-    node_data = realloc(node_data, (nodeCount + 1) * node_size);
-    memcpy(node_data + node->position * node_size, node->data, node_size);
+    node_data = realloc(node_data, (nodeCount + 1) * node->T->nodeSize);
+    memcpy(node_data + node->position * node->T->nodeSize, node->data, node->T->nodeSize);
   }
   return node->position;
 }
 
-void DeleteNode(BtreeNode* node, Btree* tree)
+void DeleteNode(BtreeNode* node)
 {
-  memset(node->data, 0, tree->nodeSize);
-  node->position = WriteNode(node, tree);
+  memset(node->data, 0, node->T->nodeSize);
+  node->position = WriteNode(node);
 }
 
 void PrintNode(const BtreeNode* node, const Btree* tree)
@@ -89,7 +87,7 @@ int main(int argc, char **argv)
   Btree* t = BtreeCreateTree(BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
       BTREE_KEY_POSITION);
 
-  byte *records = "ABCDEFGJKLMNOPQRSTUVXYZ\0";
+  byte *insert = "ACGJKMNOPDEXRSYZTUVBQLF\0";
 
   t->CompareKeys = &memcmp;
   t->ReadNode = &ReadNode;
@@ -102,9 +100,9 @@ int main(int argc, char **argv)
   t->root = ReadNode(1, t);
   *(((BtreeNode*) t->root)->is_leaf) = 1;
 
-  while (*records != 'G')
+  while (*insert != '\0')
   {
-    BtreeInsert(records++, t);
+    BtreeInsert(insert++, t);
   }
 
   do
