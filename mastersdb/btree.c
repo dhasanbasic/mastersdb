@@ -38,6 +38,9 @@
  *  Fixed a bug in BtreeInsert (root split)
  * 23.03.2010
  *  Updated code to reflect changes in the header file (utility macros etc.).
+ * 26.03.2010
+ *  Fixed a bug in insertion (no collision detected after split operation).
+ *  Fixed several bugs in deletion.
  */
 
 #include "btree.h"
@@ -256,6 +259,12 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node)
         free(next->data);
         free(next);
         next = node->T->ReadNode(node->children[i + 1], node->T);
+      }
+      else if (BT_KEYCMP(record + BT_KEYPOS(node), == ,BT_KEY(node,i), node))
+      {
+        free(next->data);
+        free(next);
+        return BTREE_INSERT_COLLISION;
       }
     }
 
@@ -476,8 +485,8 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
             /* insert the current record into the subtree root node,
              * and replace the current record by its predecessor
              */
-            BT_COPYRECORDS(next, 0, node, i, 1);
-            BT_COPYPREDECESSOR(node, i, left);
+            BT_COPYRECORDS(next, 0, node, i - 1, 1);
+            BT_COPYPREDECESSOR(node, i - 1, left);
 
             /* if the children are internal nodes, move the left
              * sibling's last child pointer to the subtree root node
@@ -485,7 +494,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
             if (BT_INTERNAL(next))
             {
               BT_MOVECHILDREN(next, 1, 0, BT_COUNT(next) + 1);
-              next->children[0] = left->children[BT_COUNT(left) + 1];
+              next->children[0] = left->children[BT_COUNT(left)];
             }
 
             /* update all nodes */
@@ -528,7 +537,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
              */
             if (BT_INTERNAL(next))
             {
-              next->children[BT_COUNT(next) + 2] = right->children[0];
+              next->children[BT_COUNT(next) + 1] = right->children[0];
               BT_MOVECHILDREN(right, 0, 1, BT_COUNT(right));
             }
 
@@ -560,7 +569,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
          */
         if (left != NULL)
         {
-          BtreeMergeNodes(left, next, node, i);
+          BtreeMergeNodes(left, next, node, i-1);
           next = left;
         }
         else

@@ -4,7 +4,7 @@
 #include "libloader.h"
 #include "btree.h"
 
-#define BTREE_T             3
+#define BTREE_T             5
 #define BTREE_RECORD_SIZE   1
 #define BTREE_KEY_SIZE      1
 #define BTREE_KEY_POSITION  0
@@ -87,7 +87,8 @@ int main(int argc, char **argv)
   Btree* t = BtreeCreateTree(BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
       BTREE_KEY_POSITION);
 
-  byte *insert = "ACGJKMNOPDEXRSYZTUVBQLF\0";
+  byte *insert = "ABCDEFGHIJKLMNOPQRSTUVXYZ\0";
+  byte *delete = "\0ZYXVUTSRQPONMLKJIHGFEDCB\0";
 
   t->CompareKeys = &memcmp;
   t->ReadNode = &ReadNode;
@@ -103,6 +104,11 @@ int main(int argc, char **argv)
   while (*insert != '\0')
   {
     BtreeInsert(insert++, t);
+  }
+
+  while (*delete != '\0')
+  {
+    BtreeDelete(delete++, t);
   }
 
   do
