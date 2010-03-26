@@ -1,6 +1,6 @@
 
 /*
- * types.h
+ * common.h
  *
  * Common used types and simplifying type definitions.
  *
@@ -21,17 +21,17 @@
  *
  * Revision history
  * ----------------
- * 28.02.2010
- *    Initial version of file.
+ * 26.03.2010
+ *  Initial version of file.
  */
 
-#ifndef TYPES_H_INCLUDED
-#define TYPES_H_INCLUDED
+#ifndef MASTERSDB_H_INCLUDED
+#define MASTERSDB_H_INCLUDED
 
-/* unsigned integer types */
-typedef unsigned int  uint32;
-typedef unsigned short  uint16;
-typedef unsigned long   ulong;
-typedef unsigned char   byte;
+#include "common.h"
+
+#include "btree/btree.h"
+
+#include "libloader/libloader.h"
 
 #endif

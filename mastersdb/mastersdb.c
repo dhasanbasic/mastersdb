@@ -1,15 +1,12 @@
 #include <stdio.h>
 #include <malloc.h>
 
-#include "libloader.h"
-#include "btree.h"
+#include "mastersdb.h"
 
 #define BTREE_T             5
 #define BTREE_RECORD_SIZE   1
 #define BTREE_KEY_SIZE      1
 #define BTREE_KEY_POSITION  0
-
-/*  | COUNT | LEAF | CHILD0 | CHILD1 | CHILD2 | CHILD3 | CHILD4 | CHILD5 | REC0 | REC1 | REC2 |*/
 
 byte* node_data = NULL;
 uint16 nodeCount = 0;
@@ -28,13 +25,15 @@ ulong WriteNode(BtreeNode* node)
 {
   if (node->position > 0L)
   {
-    memcpy(node_data + node->position * node->T->nodeSize, node->data, node->T->nodeSize);
+    memcpy(node_data + node->position * node->T->nodeSize, node->data,
+        node->T->nodeSize);
   }
   else
   {
     node->position = ++nodeCount;
     node_data = realloc(node_data, (nodeCount + 1) * node->T->nodeSize);
-    memcpy(node_data + node->position * node->T->nodeSize, node->data, node->T->nodeSize);
+    memcpy(node_data + node->position * node->T->nodeSize, node->data,
+        node->T->nodeSize);
   }
   return node->position;
 }
@@ -165,11 +164,14 @@ int main(int argc, char **argv)
         printf("*** SEARCH - enter record: ");
         fgets(buffer, 128, stdin);
         searchResult = BtreeSearch(&buffer[0], t);
-        if (searchResult != NULL) {
+        if (searchResult != NULL)
+        {
           printf("*** FOUND! (%c)\n", *searchResult);
           free(searchResult);
           searchResult = NULL;
-        } else {
+        }
+        else
+        {
           printf("*** NOT FOUND!\n");
         }
         buffer[0] = 's';

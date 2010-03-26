@@ -34,7 +34,7 @@
 #ifndef BTREE_H_INCLUDED
 #define BTREE_H_INCLUDED
 
-#include "types.h"
+#include "../common.h"
 #include <string.h>
 
 /* B-tree key comparison function */
