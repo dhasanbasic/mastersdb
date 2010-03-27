@@ -15,7 +15,8 @@ BtreeNode* ReadNode(const ulong position, Btree* tree)
 {
   ulong node_size = 2 * tree->meta.t * (tree->meta.record_size + 4)
       - tree->meta.record_size + 4;
-  BtreeNode* node = BtreeAllocateNode(tree);
+  BtreeNode* node;
+  BtreeAllocateNode(&node, tree);
   memcpy(node->data, node_data + position * node_size, node_size);
   node->position = position;
   return node;
@@ -82,8 +83,9 @@ int main(int argc, char **argv)
   byte* buffer = (byte*) malloc(128);
   byte* searchResult = NULL;
   BtreeNode* node;
+  Btree* t = NULL;
 
-  Btree* t = BtreeCreateTree(BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
+  BtreeCreateTree(&t, BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
       BTREE_KEY_POSITION);
 
   byte *insert = "ABCDEFGHIJKLMNOPQRSTUVXYZ\0";
@@ -120,7 +122,7 @@ int main(int argc, char **argv)
         printf("*** INSERT - enter record: ");
         fgets(buffer, 128, stdin);
         i = BtreeInsert(&buffer[0], t);
-        printf("*** RESULT: %s\n", (i == BTREE_INSERT_SUCCEEDED) ? "SUCCESS"
+        printf("*** RESULT: %s\n", (i == BTREE_INSERT_SUCCESS) ? "SUCCESS"
             : "COLLISION!");
         buffer[0] = 'i';
         break;
@@ -151,7 +153,7 @@ int main(int argc, char **argv)
           case BTREE_DELETE_NOTFOUND:
             printf("*** RESULT: %s\n", "RECORD NOT FOUND!");
             break;
-          case BTREE_DELETE_SUCCEEDED:
+          case BTREE_DELETE_SUCCESS:
             printf("*** RESULT: %s\n", "SUCCESS");
             break;
           default:
@@ -163,7 +165,7 @@ int main(int argc, char **argv)
       case 's':
         printf("*** SEARCH - enter record: ");
         fgets(buffer, 128, stdin);
-        searchResult = BtreeSearch(&buffer[0], t);
+        i = BtreeSearch(&buffer[0], &searchResult, t);
         if (searchResult != NULL)
         {
           printf("*** FOUND! (%c)\n", *searchResult);

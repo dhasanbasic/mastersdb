@@ -29,6 +29,8 @@
  * 24.03.2010
  *  Added forward declarations for the B-tree structures
  *    (no void* needed anymore).
+ * 27.03.2010
+ *  Updated all functions to use double pointers and return integers.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -89,14 +91,14 @@ struct BtreeNode
 };
 
 /* B-tree allocation and initialization */
-Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,
+int BtreeCreateTree(Btree** tree, const uint16 t, const uint16 record_size,
     const uint16 key_size, const uint16 key_position);
 
 /* B-tree node allocation function */
-BtreeNode *BtreeAllocateNode(Btree *tree);
+int BtreeAllocateNode(BtreeNode** node, Btree *tree);
 
 /* B-tree search */
-byte* BtreeSearch(const byte* key, Btree* t);
+int BtreeSearch(const byte* key, byte** record, Btree* t);
 
 /* B-tree insertion */
 int BtreeInsert(const byte* record, Btree* t);
@@ -104,15 +106,24 @@ int BtreeInsert(const byte* record, Btree* t);
 /* B-tree deletion */
 int BtreeDelete(const byte* key, Btree* t);
 
+/* General return values */
+#define BTREE_SUCCESS              1  /* B-tree operation succeeded         */
+#define BTREE_NOROOT               0  /* B-tree contains no root pointer    */
+#define BTREE_NOTFOUND            -1  /* non-existing key                   */
+
+/* B-tree search function return values */
+#define BTREE_SEARCH_FOUND         BTREE_SUCCESS
+#define BTREE_SEARCH_NOTFOUND      BTREE_NOTFOUND
+
 /* B-tree insertion function return values */
-#define BTREE_INSERT_COLLISION    -1  /* B-tree already contains that key   */
-#define BTREE_INSERT_NOROOT        0  /* B-tree has no root defined (null)  */
-#define BTREE_INSERT_SUCCEEDED     1  /* B-tree insertion succeeded         */
+#define BTREE_INSERT_COLLISION    -2  /* tree already contains that key     */
+#define BTREE_INSERT_NOROOT        BTREE_NOROOT
+#define BTREE_INSERT_SUCCESS       BTREE_SUCCESS
 
 /* B-tree deletion function return values */
-#define BTREE_DELETE_NOTFOUND     -1  /* B-tree does not contain that key   */
-#define BTREE_DELETE_NOROOT        0  /* B-tree has no root defined (null)  */
-#define BTREE_DELETE_SUCCEEDED     1  /* B-tree deletion succeeded          */
+#define BTREE_DELETE_NOTFOUND      BTREE_NOTFOUND
+#define BTREE_DELETE_NOROOT        BTREE_NOROOT
+#define BTREE_DELETE_SUCCESS       BTREE_SUCCESS
 #define BTREE_DELETE_EMPTYROOT     2  /* B-tree root node has no records    */
 
 /************************************************

@@ -41,6 +41,8 @@
  * 26.03.2010
  *  Fixed a bug in insertion (no collision detected after split operation).
  *  Fixed several bugs in deletion.
+ * 27.03.2010
+ *  Updated code to reflect changes (double pointers, integer return values).
  */
 
 #include "btree.h"
@@ -53,22 +55,21 @@
 /*
  * B-tree allocation and initialization
  */
-Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,
+int BtreeCreateTree(Btree** tree, const uint16 t, const uint16 record_size,
     const uint16 key_size, const uint16 key_position)
 {
-
   /* allocates a B-tree structure */
-  Btree *tree = (Btree*) malloc(sizeof(Btree));
+  *tree = (Btree*) malloc(sizeof(Btree));
 
   /* initializes the B-tree structure */
-  tree->meta.t = t;
-  tree->meta.record_size = record_size;
-  tree->meta.key_size = key_size;
-  tree->meta.key_position = key_position;
-  tree->nodeSize = (tree->meta.t << 1) * (tree->meta.record_size + 4)
-      - tree->meta.record_size + 4;
+  (*tree)->meta.t = t;
+  (*tree)->meta.record_size = record_size;
+  (*tree)->meta.key_size = key_size;
+  (*tree)->meta.key_position = key_position;
+  (*tree)->nodeSize = ((*tree)->meta.t << 1) * ((*tree)->meta.record_size + 4)
+      - (*tree)->meta.record_size + 4;
 
-  return tree;
+  return BTREE_SUCCESS;
 }
 
 /*
@@ -84,33 +85,32 @@ Btree* BtreeCreateTree(const uint16 t, const uint16 record_size,
  *  NODE_SIZE = (2 * T) * (RECORD_SIZE + 4) - RECORD_SIZE + 4
  *
  */
-BtreeNode *BtreeAllocateNode(Btree *tree)
+int BtreeAllocateNode(BtreeNode** node, Btree *tree)
 {
-
-  BtreeNode *node = (BtreeNode*) malloc(sizeof(BtreeNode));
+  *node = (BtreeNode*) malloc(sizeof(BtreeNode));
 
   /* Allocates the memory */
-  node->data = (byte*) malloc(tree->nodeSize);
-  memset(node->data, 0, tree->nodeSize);
+  (*node)->data = (byte*) malloc(tree->nodeSize);
+  memset((*node)->data, 0, tree->nodeSize);
 
   /* Initializes the data pointers */
-  node->record_count = (uint16*) node->data;
-  node->is_leaf = node->record_count + 1;
-  node->children = (ulong*) (node->is_leaf + 1);
-  node->records = (byte*) (node->children + (tree->meta.t << 1));
-  node->T = tree;
-  node->position = 0L;
+  (*node)->record_count = (uint16*) (*node)->data;
+  (*node)->is_leaf = (*node)->record_count + 1;
+  (*node)->children = (ulong*) ((*node)->is_leaf + 1);
+  (*node)->records = (byte*) ((*node)->children + (tree->meta.t << 1));
+  (*node)->T = tree;
+  (*node)->position = 0L;
 
-  return node;
+  return BTREE_SUCCESS;
 }
 
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
+int BtreeSearchRecursive(const byte* key, byte** record, BtreeNode* node)
 {
   BtreeNode* next = NULL;
-  byte* res = NULL;
+  int result = 0;
   uint16 i = 0;
 
   while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i),node))
@@ -123,41 +123,42 @@ byte* BtreeSearchRecursive(const byte* key, BtreeNode* node)
   {
     if (BT_KEYCMP(key, == ,BT_KEY(node,i),node))
     {
-      res = (byte*) malloc(BT_RECSIZE(node));
-      memcpy(res, BT_RECORD(node,i), BT_RECSIZE(node));
-      return res;
+      *record = (byte*) malloc(BT_RECSIZE(node));
+      memcpy(*record, BT_RECORD(node,i), BT_RECSIZE(node));
+      return BTREE_SEARCH_FOUND;
     }
   }
 
   /* if node is a leaf, search for the key and return NULL if not found */
   if (BT_LEAF(node))
   {
-    res = NULL;
+    *record = NULL;
+    result = BTREE_SEARCH_NOTFOUND;
   }
   /* if node is an internal node, search for the key or recurse to subtree */
   else
   {
     next = node->T->ReadNode(node->children[i], node->T);
-    res = BtreeSearchRecursive(key, next);
+    result = BtreeSearchRecursive(key, record, next);
     free(next->data);
     free(next);
   }
 
-  return res;
+  return result;
 }
 
 /*
  * B-tree search function
  */
-byte* BtreeSearch(const byte* key, Btree* t)
+int BtreeSearch(const byte* key, byte** record, Btree* t)
 {
   if (t->root != NULL)
   {
-    return BtreeSearchRecursive(key, t->root);
+    return BtreeSearchRecursive(key, record, t->root);
   }
   else
   {
-    return NULL;
+    return BTREE_INSERT_NOROOT;
   }
 }
 
@@ -166,7 +167,8 @@ byte* BtreeSearch(const byte* key, Btree* t)
  */
 void BtreeSplitNode(BtreeNode* left, BtreeNode* parent, const uint16 position)
 {
-  BtreeNode* right = BtreeAllocateNode(left->T);
+  BtreeNode* right = NULL;
+  BtreeAllocateNode(&right, left->T);
 
   /* copy the second half parts of the records and child pointers from the
    * left child node to the new right child node
@@ -238,7 +240,7 @@ int BtreeInsertRecursive(const byte* record, BtreeNode* node)
     memcpy(BT_RECORD(node, i), record, BT_RECSIZE(node));
     BT_COUNT(node) = BT_COUNT(node) + 1;
     node->position = node->T->WriteNode(node);
-    return BTREE_INSERT_SUCCEEDED;
+    return BTREE_INSERT_SUCCESS;
   }
 
   /* if node is an internal node recurse to the subtree */
@@ -287,7 +289,7 @@ int BtreeInsert(const byte* record, Btree* t)
     /* t->root node is full, split it */
     if (BT_COUNT(t->root) == (BT_ORDER(t->root) << 1) - 1)
     {
-      newRoot = BtreeAllocateNode(t);
+      BtreeAllocateNode(&newRoot, t);
 
       /* the new t->root will be an internal node, while the old t->root
        * will become a leaf node and get a right sibling
@@ -445,7 +447,7 @@ int BtreeDeleteRecursive(const byte* key, BtreeNode* node)
       free(left);
       return result;
     }
-    return BTREE_DELETE_SUCCEEDED;
+    return BTREE_DELETE_SUCCESS;
   }
   else
   {
