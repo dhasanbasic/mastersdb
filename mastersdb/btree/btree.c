@@ -47,10 +47,6 @@
 
 #include "btree.h"
 
-/* TODO: Optimization: binary search during insert/delete                 */
-/* TODO: Optimization: write iterative versions of insert/delete          */
-/* TODO: Optimization: No allocation in ReadNode/WriteNode call           */
-
 /*
  * B-tree allocation and initialization
  */
