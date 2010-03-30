@@ -37,7 +37,6 @@
 #define BTREE_H_INCLUDED
 
 #include "../common.h"
-#include <string.h>
 
 /* B-tree key comparison function */
 typedef int (*CompareKeysPtr)(const void* key1, const void* key2,

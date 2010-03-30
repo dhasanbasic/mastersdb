@@ -1,7 +1,7 @@
 /*
  * libloader.h
  *
- * A simble Win32/Linux dynamic library loader implementation
+ * A simple Win32/Linux dynamic library loader implementation
  *
  * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
  *

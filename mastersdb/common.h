@@ -33,4 +33,7 @@ typedef unsigned short uint16;
 typedef unsigned long ulong;
 typedef unsigned char byte;
 
+#include <string.h>
+#include <malloc.h>
+
 #endif /* COMMON_H_ */

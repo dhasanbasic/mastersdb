@@ -46,7 +46,6 @@
  */
 
 #include "btree.h"
-#include <malloc.h>
 
 /* TODO: Optimization: binary search during insert/delete                 */
 /* TODO: Optimization: write iterative versions of insert/delete          */
