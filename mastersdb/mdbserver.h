@@ -1,8 +1,8 @@
 
 /*
- * common.h
+ * mdbserver.h
  *
- * Common used types and simplifying type definitions.
+ * MastersDB Server main include file.
  *
  * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
  *
@@ -25,8 +25,8 @@
  *  Initial version of file.
  */
 
-#ifndef MASTERSDB_H_INCLUDED
-#define MASTERSDB_H_INCLUDED
+#ifndef MDBSERVER_H_INCLUDED
+#define MDBSERVER_H_INCLUDED
 
 #include "common.h"
 
