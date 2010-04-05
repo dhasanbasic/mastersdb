@@ -1,7 +1,7 @@
 /*
- * common.h
+ * datatypes.h
  *
- * ### DESCRIPTION
+ * Datatypes supported by the database
  *
  * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
  *
@@ -20,25 +20,27 @@
  *
  * Revision history
  * ----------------
- * 31.03.2010
+ * 05.04.2010
  *    Initial version of file.
  */
 
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef DATATYPES_H_
+#define DATATYPES_H_
 
-/* unsigned integer types */
-typedef unsigned int uint32;
-typedef unsigned short uint16;
-typedef unsigned long ulong;
-typedef unsigned char byte;
+#include "../common.h"
 
-#include <string.h>
-#include <malloc.h>
+/* forward declarations */
+typedef struct MdbDatatype MdbDatatype;
+
+struct MdbDatatype {
+  uint16 id;              /* index of the data type in the type-names table   */
+  uint16 nameLength;      /* length of the type-name                          */
+  uint16 size;            /* size of the data type, 0 for varying-size types  */
+  byte name[16];          /* name of the type, used in SQL                    */
+  CompareKeysPtr compare; /* pointer to comparison function                   */
+};
 
 
-/* Key/Data type comparison function */
-typedef int (*CompareKeysPtr)(const void* key1, const void* key2,
-    const uint32 size);
 
-#endif /* COMMON_H_ */
+
+#endif /* DATATYPES_H_ */

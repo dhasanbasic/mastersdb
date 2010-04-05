@@ -31,16 +31,14 @@
  *    (no void* needed anymore).
  * 27.03.2010
  *  Updated all functions to use double pointers and return integers.
+ * 05.03.2010
+ *  Moved the CompareKeyPtr declaration to common.h
  */
 
 #ifndef BTREE_H_INCLUDED
 #define BTREE_H_INCLUDED
 
 #include "../common.h"
-
-/* B-tree key comparison function */
-typedef int (*CompareKeysPtr)(const void* key1, const void* key2,
-    const size_t size);
 
 /* forward declarations of the B-tree structures */
 typedef struct BtreeMeta BtreeMeta;
