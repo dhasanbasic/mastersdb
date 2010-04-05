@@ -20,7 +20,7 @@
  *
  * Revision history
  * ----------------
- * 2010 3 26
+ * 31.03.2010
  *    Initial version of file.
  */
 
