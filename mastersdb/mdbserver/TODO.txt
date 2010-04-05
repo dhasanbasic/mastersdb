@@ -5,15 +5,27 @@
 
 General
 -------
-  * ISO-8859 character sets support
-    - Create two binary files containing the ISO-8859 to UTF-8 and UTF-8 to
-      ISO-8859 data. Eventually, store the UTF-8 to ISO-8859 mapping in an
-      in-memory B-tree, so the corresponding ISO-8859 byte-code can be quickly
-      accessed by its UTF-8 byte sequence (used as the key).
+  * add support for character sets (at B-Tree level):
+    - ISO-8859-(1-16), 1 byte per character
+    - UTF-8, 1-4 bytes per character
+    - UTF-16, 2 bytes per character (BMP), 4 byte per surrogate pair
+    
+  * implement a basic interface (structure) to describe a column
   
-  * UTF-8 related
-    - Implement a GetUTF8StringLength function.
-      (http://www.cprogramming.com/tutorial/unicode.html) 
+  * design a file format for storing B-trees:
+    # 512 Bytes Header with:
+      - MastersDB magic number, format identification
+      - Pointer to first B-tree descriptor block
+      - Pointer to first free list block
+    # 1-4 KB-blocks of following types:
+      - 1 KB: B-tree descriptor storage
+      - 1 KB: Free list storage
+      - 4 KB: B-tree node storage
+      - 4 KB: B(plus)-tree key storage
+  
+  * Store the string length in the column that stores a string to avoid
+    unnecessary counting of characters
+  
 
 Optimizations
 -------------
