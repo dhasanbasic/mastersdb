@@ -1,7 +1,7 @@
 /*
  * datatypes.h
  *
- * Datatypes supported by the database
+ * Data types supported by the database
  *
  * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
  *
@@ -22,6 +22,9 @@
  * ----------------
  * 05.04.2010
  *    Initial version of file.
+ * 09.04.2010
+ *    Added a specific hashing function for the predefined type names.
+ *    Added a function for initializing the data type table.
  */
 
 #ifndef DATATYPES_H_
@@ -32,15 +35,23 @@
 /* forward declarations */
 typedef struct MdbDatatype MdbDatatype;
 
+#define MDB_DATATYPE_COUNT    11
+
 struct MdbDatatype {
-  uint16 id;              /* index of the data type in the type-names table   */
+  uint16 checksum;        /* index of the data type in the type-names table   */
   uint16 nameLength;      /* length of the type-name                          */
   uint16 size;            /* size of the data type, 0 for varying-size types  */
-  byte name[16];          /* name of the type, used in SQL                    */
+  byte *name;             /* name of the type, used in SQL                    */
   CompareKeysPtr compare; /* pointer to comparison function                   */
 };
 
+/* initializes the Masters DB data type structures */
+void MdbInitializeTypes(MdbDatatype **datatypes);
 
-
+/*
+ * generates a index between 0 and 10, and a unique checksum for a given
+ * Masters DB data type name
+ */
+void MdbHashTypename(const byte *name, byte *hash, uint16 *checksum);
 
 #endif /* DATATYPES_H_ */

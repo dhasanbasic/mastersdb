@@ -38,7 +38,6 @@ typedef unsigned char byte;
 
 
 /* Key/Data type comparison function */
-typedef int (*CompareKeysPtr)(const void* key1, const void* key2,
-    const uint32 size);
+typedef int (*CompareKeysPtr)(const void* key1, const void* key2, uint32 size);
 
 #endif /* COMMON_H_ */
