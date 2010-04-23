@@ -6,24 +6,23 @@
 General
 -------    
   * implement support for following data types (sorted by name length):
-    ** NAME            NAME LENGTH   SIZE (B)  COMPARISON FUNCTION
-       FLAG            4             1         N/A
-       FLOAT           5             4         assembly -> CompareFloat
-       DOUBLE          6             8         assembly -> CompareDouble
-       BINARY          6             4 + N*1   N/A
-       INTEGER         7             4         Standard C -> memcmp
-       CURRENCY        8             4+1+16    assebmly -> CompareFloat
-        (Float+Symbol)
-       ISOSTRING       9             4 + N*1   Standard C -> strncmp
-       UTF8STRING      10            4 + N*1   Standard C -> strncmp
-       UTF16STRING     11            4 + N*2   C/assembly -> CompareUnicode
-       LONG DOUBLE     11            12        assembly -> CompareLongDouble
-       LONG INTEGER    12            8         assembly -> CompareLongInteger
-    
-    ** design a hash function for the type name to index conversion, so types
-       can be stored in a "type table" and quickly accesses by name
+    ** NAME          NAME  HEADER  SIZE (B)  COMPARISON FUNCTION
+       FLAG           4    0       1         Standard C -> memcmp
+       FLOAT          5    0       4         assembly   -> CompareFloat
+       DOUBLE         6    0       8         assembly   -> CompareDouble
+       BINARY         6    4       N*1       N/A
+       INTEGER        7    0       4         Standard C -> memcmp
+       ISOSTRING      9    4       N*1       Standard C -> strncmp
+       UNISTRING      9    4       N*2       C/assembly -> CompareUnicode
+       UTF8STRING    10    4       N*1       Standard C -> strncmp
+       LONG DOUBLE   11    0       12        assembly   -> CompareLongDouble
+       LONG INTEGER  12    0       8         Standard C -> memcmp
        
-    ** design and implement the missing type comparison functions
+    ** design and implement the missing type comparison functions:
+      - mdbCompareFloat
+      - mdbCompareDouble
+      - mdbCompareUnicode
+      - mdbCompareLongDouble
   
   * design a file format for storing B-trees:
     # 512 Bytes Header with:

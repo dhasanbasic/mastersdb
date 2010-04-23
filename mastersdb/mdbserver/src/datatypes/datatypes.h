@@ -23,8 +23,10 @@
  * 05.04.2010
  *    Initial version of file.
  * 09.04.2010
- *    Added a specific hashing function for the predefined type names.
  *    Added a function for initializing the data type table.
+ * 23.04.2010
+ *    Added a function for data-type information retrieval.
+ *    Added prototypes for special comparison functions.
  */
 
 #ifndef DATATYPES_H_
@@ -33,25 +35,29 @@
 #include "../common.h"
 
 /* forward declarations */
-typedef struct MdbDatatype MdbDatatype;
+typedef struct mdbDatatype mdbDatatype;
 
-#define MDB_DATATYPE_COUNT    11
+#define MDB_TYPE_COUNT  10
 
-struct MdbDatatype {
-  uint16 checksum;        /* index of the data type in the type-names table   */
-  uint16 nameLength;      /* length of the type-name                          */
-  uint16 size;            /* size of the data type, 0 for varying-size types  */
-  byte *name;             /* name of the type, used in SQL                    */
-  CompareKeysPtr compare; /* pointer to comparison function                   */
+struct mdbDatatype {
+  byte name[13];    /* upper-case name, including null char.          */
+  byte length;            /* length of the name                             */
+  byte header;            /* length of header information (0 if not used)   */
+  uint16 size;            /* size of the value, 0 for varying-size types    */
+  CompareKeysPtr compare; /* pointer to comparison function                 */
 };
 
-/* initializes the Masters DB data type structures */
-void MdbInitializeTypes(MdbDatatype **datatypes);
+/* special type comparison functions */
+int mdbCompareFloat(const void* v1, const void* v2, uint32 size);
+int mdbCompareDouble(const void* v1, const void* v2, uint32 size);
+int mdbCompareUnicode(const void* v1, const void* v2, uint32 size);
+int mdbCompareLongDouble(const void* v1, const void* v2, uint32 size);
 
-/*
- * generates a index between 0 and 10, and a unique checksum for a given
- * Masters DB data type name
- */
-void MdbHashTypename(const byte *name, byte *hash, uint16 *checksum);
+/* initializes the Masters DB data type structures */
+void mdbInitializeTypes(mdbDatatype **typetable);
+
+/* retrieves a data type's information based on the name provided */
+mdbDatatype* mdbGetTypeInfo(const byte *name, const byte length,
+    mdbDatatype *typetable);
 
 #endif /* DATATYPES_H_ */

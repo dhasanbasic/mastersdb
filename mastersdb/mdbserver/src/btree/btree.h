@@ -41,21 +41,21 @@
 #include "../common.h"
 
 /* forward declarations of the B-tree structures */
-typedef struct BtreeMeta BtreeMeta;
-typedef struct Btree Btree;
-typedef struct BtreeNode BtreeNode;
+typedef struct mdbBtreeMeta mdbBtreeMeta;
+typedef struct mdbBtree     mdbBtree;
+typedef struct mdbBtreeNode mdbBtreeNode;
 
 /* B-tree node retrieval function */
-typedef BtreeNode* (*BtreeLoadNodePtr)(const ulong position, Btree* tree);
+typedef mdbBtreeNode* (*BtreeLoadNodePtr)(const ulong position, mdbBtree* tree);
 
 /* B-tree node write-out function */
-typedef ulong (*BtreeWriteNodePtr)(BtreeNode* node);
+typedef ulong (*BtreeWriteNodePtr)(mdbBtreeNode* node);
 
 /* B-tree node deletion function */
-typedef void (*BtreeDeleteNodePtr)(BtreeNode* node);
+typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
 
 /* B-tree node meta-data */
-struct BtreeMeta
+struct mdbBtreeMeta
 {
   uint16 t;               /* B-tree order (minimal children count)  */
   uint16 record_size;     /* size of a record                       */
@@ -64,10 +64,10 @@ struct BtreeMeta
 };
 
 /* B-tree structure */
-struct Btree
+struct mdbBtree
 {
-  BtreeMeta meta;             /* node metadata                           */
-  BtreeNode* root;                     /* pointer to root node (preloaded)        */
+  mdbBtreeMeta meta;              /* node meta-data                          */
+  mdbBtreeNode* root;             /* pointer to root node (preloaded)        */
   uint16 nodeSize;                /* size of a node                          */
   CompareKeysPtr CompareKeys;     /* pointer to key comparison function      */
   BtreeLoadNodePtr ReadNode;      /* node retrieval implementation           */
@@ -76,9 +76,9 @@ struct Btree
 };
 
 /* B-tree node structure */
-struct BtreeNode
+struct mdbBtreeNode
 {
-  Btree* T;               /* pointer to the B-tree                  */
+  mdbBtree* T;            /* pointer to the B-tree                  */
   byte *data;             /* raw data of the node                   */
   uint16 *record_count;   /* pointer to count of records            */
   uint16 *is_leaf;        /* pointer to leaf/internal information   */
@@ -88,40 +88,40 @@ struct BtreeNode
 };
 
 /* B-tree allocation and initialization */
-int BtreeCreateTree(Btree** tree, const uint16 t, const uint16 record_size,
-    const uint16 key_size, const uint16 key_position);
+int mdbBtreeCreateTree(mdbBtree** tree, const uint16 t,
+    const uint16 record_size, const uint16 key_size, const uint16 key_position);
 
 /* B-tree node allocation function */
-int BtreeAllocateNode(BtreeNode** node, Btree *tree);
+int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
 
 /* B-tree search */
-int BtreeSearch(const byte* key, byte** record, Btree* t);
+int mdbBtreeSearch(const byte* key, byte** record, mdbBtree* t);
 
 /* B-tree insertion */
-int BtreeInsert(const byte* record, Btree* t);
+int mdbBtreeInsert(const byte* record, mdbBtree* t);
 
 /* B-tree deletion */
-int BtreeDelete(const byte* key, Btree* t);
+int mdbBtreeDelete(const byte* key, mdbBtree* t);
 
 /* General return values */
-#define BTREE_SUCCESS              1  /* B-tree operation succeeded         */
-#define BTREE_NOROOT               0  /* B-tree contains no root pointer    */
-#define BTREE_NOTFOUND            -1  /* non-existing key                   */
+#define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */
+#define MDB_BTREE_NOROOT           0  /* B-tree contains no root pointer    */
+#define MDB_BTREE_NOTFOUND        -1  /* non-existing key                   */
 
 /* B-tree search function return values */
-#define BTREE_SEARCH_FOUND         BTREE_SUCCESS
-#define BTREE_SEARCH_NOTFOUND      BTREE_NOTFOUND
+#define MDB_BTREE_SEARCH_FOUND      MDB_BTREE_SUCCESS
+#define MDB_BTREE_SEARCH_NOTFOUND   MDB_BTREE_NOTFOUND
 
 /* B-tree insertion function return values */
-#define BTREE_INSERT_COLLISION    -2  /* tree already contains that key     */
-#define BTREE_INSERT_NOROOT        BTREE_NOROOT
-#define BTREE_INSERT_SUCCESS       BTREE_SUCCESS
+#define MDB_BTREE_INSERT_COLLISION  -2  /* tree already contains that key   */
+#define MDB_BTREE_INSERT_NOROOT     MDB_BTREE_NOROOT
+#define MDB_BTREE_INSERT_SUCCESS    MDB_BTREE_SUCCESS
 
 /* B-tree deletion function return values */
-#define BTREE_DELETE_NOTFOUND      BTREE_NOTFOUND
-#define BTREE_DELETE_NOROOT        BTREE_NOROOT
-#define BTREE_DELETE_SUCCESS       BTREE_SUCCESS
-#define BTREE_DELETE_EMPTYROOT     2  /* B-tree root node has no records    */
+#define MDB_BTREE_DELETE_NOTFOUND   MDB_BTREE_NOTFOUND
+#define MDB_BTREE_DELETE_NOROOT     MDB_BTREE_NOROOT
+#define MDB_BTREE_DELETE_SUCCESS    MDB_BTREE_SUCCESS
+#define MDB_BTREE_DELETE_EMPTYROOT  2  /* B-tree root node has no records   */
 
 /************************************************
  * Utility macros (for better code readability) *
