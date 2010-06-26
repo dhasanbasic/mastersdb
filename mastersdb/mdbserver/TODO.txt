@@ -6,34 +6,23 @@
 General
 -------    
   * implement support for following data types (sorted by name length):
-    ** NAME          NAME  HEADER  SIZE (B)  COMPARISON FUNCTION
-       FLAG           4    0       1         Standard C -> memcmp
-       FLOAT          5    0       4         assembly   -> CompareFloat
-       DOUBLE         6    0       8         assembly   -> CompareDouble
-       BINARY         6    4       N*1       N/A
-       INTEGER        7    0       4         Standard C -> memcmp
-       ISOSTRING      9    4       N*1       Standard C -> strncmp
-       UNISTRING      9    4       N*2       C/assembly -> CompareUnicode
-       UTF8STRING    10    4       N*1       Standard C -> strncmp
-       LONG DOUBLE   11    0       12        assembly   -> CompareLongDouble
-       LONG INTEGER  12    0       8         Standard C -> memcmp
+    ** NAME     NAME  HEADER  SIZE (B)  COMPARISON FUNCTION
+       INT      3     0       1         Standard C -> memcmp
+       LONG     4     0       2         Standard C -> memcmp
+       UTF8     4     4       N*1 + 4   Standard C -> strncmp
+       FLOAT    5     0       4         assembly   -> CompareFloat
+       UTF16    5     4       N*2 + 4   Standard C -> strncmp
        
     ** design and implement the missing type comparison functions:
       - mdbCompareFloat
-      - mdbCompareDouble
-      - mdbCompareUnicode
-      - mdbCompareLongDouble
-  
-  * design a file format for storing B-trees:
-    # 512 Bytes Header with:
-      - MastersDB magic number, format identification
-      - Pointer to first B-tree descriptor block
-      - Pointer to first free list block
-    # 1-4 KB-blocks of following types:
-      - 1 KB: B-tree descriptor storage
-      - 1 KB: Free list storage
-      - 4 KB: B-tree node storage
-      - 4 KB: B(plus)-tree key storage
+
+  * design a file format for storing many B-trees
+    # 260 Bytes header
+      - MastersDB magic number                          (  2 bytes)
+      - MastersDB version                               (  2 bytes)
+      - 16 entry B-tree descriptor table                ( 64 bytes)
+      - 32 entry free blocks table (6 bytes each)       (192 bytes)
+    # B-tree descriptors and nodes
 
 Optimizations
 -------------
