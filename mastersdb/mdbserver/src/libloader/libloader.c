@@ -50,7 +50,7 @@ Library* OpenLibrary(const char* name) {
     strcat(libname, "./");
     strcat(libname, libname);
     strcat(libname, ".so");
-    lin->libhandle = dlopen(libname, RTLD_LAZY);
+    lib->libhandle = dlopen(libname, RTLD_LAZY);
     free(libname);
 	#endif
 
