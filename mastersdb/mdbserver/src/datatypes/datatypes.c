@@ -24,6 +24,8 @@
  *    Initial version of file.
  * 23.04.2010
  *    Implemented the data type table initialization and data type retrieval.
+ * 26.06.2010
+ *    Re-factoring of data type table initialization.
  */
 
 #include "datatypes.h"
@@ -35,21 +37,10 @@ int mdbCompareFloat(const void* v1, const void* v2, uint32 size)
   return 0;
 }
 
-int mdbCompareDouble(const void* v1, const void* v2, uint32 size)
-{
-  return 0;
-}
-
 int mdbCompareUnicode(const void* v1, const void* v2, uint32 size)
 {
   return 0;
 }
-
-int mdbCompareLongDouble(const void* v1, const void* v2, uint32 size)
-{
-  return 0;
-}
-
 
 void mdbInitializeTypes(mdbDatatype **typetable)
 {
@@ -57,34 +48,19 @@ void mdbInitializeTypes(mdbDatatype **typetable)
   *typetable = (mdbDatatype*)malloc(MDB_TYPE_COUNT * sizeof(mdbDatatype));
 
   (*typetable)[0] = (mdbDatatype){
-    "FLAG",          4, 0, sizeof(byte),        &memcmp};
+    "INT",    3, 0, sizeof(int),      &memcmp};
 
   (*typetable)[1] = (mdbDatatype){
-    "FLOAT",         5, 0, sizeof(float),       &mdbCompareFloat};
+    "LONG",   4, 0, sizeof(long),     &memcmp};
 
   (*typetable)[2] = (mdbDatatype){
-    "DOUBLE",        6, 0, sizeof(double),      &mdbCompareDouble};
+    "UTF8",   4, 4, sizeof(byte),     (CompareKeysPtr)&strncmp};
 
   (*typetable)[3] = (mdbDatatype){
-    "BINARY",        6, 4, sizeof(byte),        NULL};
+    "FLOAT",  5, 0, sizeof(float),    &mdbCompareFloat};
 
   (*typetable)[4] = (mdbDatatype){
-    "INTEGER",       7, 0, sizeof(int),         &memcmp};
-
-  (*typetable)[5] = (mdbDatatype){
-    "ISOSTRING",     9, 4, sizeof(byte),        (CompareKeysPtr)&strncmp};
-
-  (*typetable)[6] = (mdbDatatype){
-    "UNISTRING",     9, 4, sizeof(byte) * 2,    &mdbCompareUnicode};
-
-  (*typetable)[7] = (mdbDatatype){
-    "UTF8STRING",   10, 4, sizeof(byte),        (CompareKeysPtr)&strncmp};
-
-  (*typetable)[8] = (mdbDatatype){
-    "LONG DOUBLE",  11, 0, sizeof(long double), &mdbCompareLongDouble};
-
-  (*typetable)[9] = (mdbDatatype){
-    "LONG INTEGER", 12, 0, sizeof(long int),    &memcmp};
+    "UTF16",  5, 4, sizeof(byte) * 2, &mdbCompareUnicode};
 
 }
 

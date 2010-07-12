@@ -27,6 +27,8 @@
  * 23.04.2010
  *    Added a function for data-type information retrieval.
  *    Added prototypes for special comparison functions.
+ * 26.06.2010
+ *    Re-factoring of data-type information retrieval function.
  */
 
 #ifndef DATATYPES_H_
@@ -37,21 +39,19 @@
 /* forward declarations */
 typedef struct mdbDatatype mdbDatatype;
 
-#define MDB_TYPE_COUNT  10
+#define MDB_TYPE_COUNT  5
 
 struct mdbDatatype {
-  byte name[13];    /* upper-case name, including null char.          */
+  byte name[6];           /* upper-case name, including null char.          */
   byte length;            /* length of the name                             */
   byte header;            /* length of header information (0 if not used)   */
-  uint16 size;            /* size of the value, 0 for varying-size types    */
+  byte size;              /* size of the value, 0 for varying-size types    */
   CompareKeysPtr compare; /* pointer to comparison function                 */
 };
 
 /* special type comparison functions */
 int mdbCompareFloat(const void* v1, const void* v2, uint32 size);
-int mdbCompareDouble(const void* v1, const void* v2, uint32 size);
 int mdbCompareUnicode(const void* v1, const void* v2, uint32 size);
-int mdbCompareLongDouble(const void* v1, const void* v2, uint32 size);
 
 /* initializes the Masters DB data type structures */
 void mdbInitializeTypes(mdbDatatype **typetable);
