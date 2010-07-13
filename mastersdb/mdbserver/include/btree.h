@@ -38,7 +38,7 @@
 #ifndef BTREE_H_INCLUDED
 #define BTREE_H_INCLUDED
 
-#include "../common.h"
+#include "common.h"
 
 /* forward declarations of the B-tree structures */
 typedef struct mdbBtreeMeta mdbBtreeMeta;
