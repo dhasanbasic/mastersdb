@@ -47,21 +47,14 @@ void mdbInitializeTypes(mdbDatatype **typetable)
   /* initialize the data types array */
   *typetable = (mdbDatatype*)malloc(MDB_TYPE_COUNT * sizeof(mdbDatatype));
 
-  (*typetable)[0] = (mdbDatatype){
-    "INT",    3, 0, sizeof(int),      &memcmp};
-
-  (*typetable)[1] = (mdbDatatype){
-    "LONG",   4, 0, sizeof(long),     &memcmp};
-
-  (*typetable)[2] = (mdbDatatype){
-    "UTF8",   4, 4, sizeof(byte),     (CompareKeysPtr)&strncmp};
-
-  (*typetable)[3] = (mdbDatatype){
-    "FLOAT",  5, 0, sizeof(float),    &mdbCompareFloat};
-
-  (*typetable)[4] = (mdbDatatype){
-    "UTF16",  5, 4, sizeof(byte) * 2, &mdbCompareUnicode};
-
+  (*typetable)[0] = (mdbDatatype){ "INT-16",  6, 0, sizeof(uint16), &memcmp};
+  (*typetable)[1] = (mdbDatatype){ "INT-32",  6, 0, sizeof(uint32), &memcmp};
+  (*typetable)[2] = (mdbDatatype){ "FLOAT",   5, 0, sizeof(float),
+    &mdbCompareFloat};
+  (*typetable)[3] = (mdbDatatype){ "CHAR-8",  6, 4, sizeof(byte),
+    (CompareKeysPtr)&strncmp};
+  (*typetable)[4] = (mdbDatatype){ "CHAR-16", 7, 4, sizeof(byte) * 2,
+    &mdbCompareUnicode};
 }
 
 mdbDatatype* mdbGetTypeInfo(const byte *name, const byte length,

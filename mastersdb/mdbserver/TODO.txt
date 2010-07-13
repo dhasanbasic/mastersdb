@@ -5,13 +5,13 @@
 
 General
 -------    
-  * implement support for following data types (sorted by name length):
-    ** NAME     NAME  HEADER  SIZE (B)  COMPARISON FUNCTION
-       INT      3     0       1         Standard C -> memcmp
-       LONG     4     0       2         Standard C -> memcmp
-       UTF8     4     4       N*1 + 4   Standard C -> strncmp
-       FLOAT    5     0       4         assembly   -> CompareFloat
-       UTF16    5     4       N*2 + 4   Standard C -> CompareUnicode
+  * implement support for following data types:
+    ** NAME     NAME LENGTH  HEADER  SIZE (B)  COMPARISON FUNCTION
+       INT-16   6            0       1         Standard C -> memcmp
+       INT-32   6            0       2         Standard C -> memcmp
+       FLOAT    5            0       4         assembly   -> CompareFloat
+       CHAR-8   6            4       N*1 + 4   Standard C -> strncmp
+       CHAR-16  7            4       N*2 + 4   Standard C -> CompareUnicode
        
     ** design and implement the missing type comparison functions:
       - mdbCompareFloat

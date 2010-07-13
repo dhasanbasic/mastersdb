@@ -42,7 +42,7 @@ typedef struct mdbDatatype mdbDatatype;
 #define MDB_TYPE_COUNT  5
 
 struct mdbDatatype {
-  byte name[6];           /* upper-case name, including null char.          */
+  byte name[8];           /* upper-case name, including null char.          */
   byte length;            /* length of the name                             */
   byte header;            /* length of header information (0 if not used)   */
   byte size;              /* size of the value, 0 for varying-size types    */
