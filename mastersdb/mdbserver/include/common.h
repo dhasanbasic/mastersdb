@@ -22,6 +22,8 @@
  * ----------------
  * 31.03.2010
  *    Initial version of file.
+ * 13.07.2010
+ *    Added the MasterDB version and format magic number definitions
  */
 
 #ifndef COMMON_H_
@@ -36,6 +38,11 @@ typedef unsigned char byte;
 #include <string.h>
 #include <malloc.h>
 
+/* MastersDB format signature (magic number) */
+#define MDB_MAGIC_NUMBER  0xEEDB
+
+/* MastersDB version signature (0.7) */
+#define MDB_VERSION       0x0007
 
 /* Key/Data type comparison function */
 typedef int (*CompareKeysPtr)(const void* key1, const void* key2, uint32 size);

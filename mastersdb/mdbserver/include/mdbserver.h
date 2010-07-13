@@ -32,8 +32,6 @@
 
 #include "btree.h"
 
-#include "libloader.h"
-
 #include "datatypes.h"
 
 #endif
