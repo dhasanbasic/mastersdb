@@ -61,6 +61,7 @@ int mdbBtreeCreateTree(mdbBtree** tree, const uint16 t,
   (*tree)->meta.record_size = record_size;
   (*tree)->meta.key_size = key_size;
   (*tree)->meta.key_position = key_position;
+  (*tree)->meta.root_position = 0L;
   (*tree)->nodeSize = ((*tree)->meta.t << 1) * ((*tree)->meta.record_size + 4)
       - (*tree)->meta.record_size + 4;
 
@@ -91,7 +92,7 @@ int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
   /* Initializes the data pointers */
   (*node)->record_count = (uint16*) (*node)->data;
   (*node)->is_leaf = (*node)->record_count + 1;
-  (*node)->children = (ulong*) ((*node)->is_leaf + 1);
+  (*node)->children = (uint32*) ((*node)->is_leaf + 1);
   (*node)->records = (byte*) ((*node)->children + (tree->meta.t << 1));
   (*node)->T = tree;
   (*node)->position = 0L;

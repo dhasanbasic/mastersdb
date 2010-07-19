@@ -21,22 +21,25 @@
  * Revision history
  * ----------------
  * 31.03.2010
- *    Initial version of file.
+ *  Initial version of file.
  * 13.07.2010
- *    Added the MasterDB version and format magic number definitions
+ *  Added the MasterDB version and format magic number definitions
+ * 15.07.2010
+ *  Switched the main data types to stdint.h (platform independent).
  */
 
 #ifndef COMMON_H_
 #define COMMON_H_
 
-/* unsigned integer types */
-typedef unsigned int uint32;
-typedef unsigned short uint16;
-typedef unsigned long ulong;
-typedef unsigned char byte;
-
 #include <string.h>
 #include <malloc.h>
+#include <stdint.h>
+
+/* unsigned integer types */
+typedef uint32_t uint32;
+typedef uint16_t uint16;
+typedef uint8_t  uint8;
+typedef uint8_t byte;
 
 /* MastersDB format signature (magic number) */
 #define MDB_MAGIC_NUMBER  0xEEDB

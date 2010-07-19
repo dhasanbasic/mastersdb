@@ -26,15 +26,15 @@ General
       - 30 entry free blocks table (6 bytes each)       (180 bytes)
       --------------------------------------------------------------
       - TOTAL                                            256 bytes
-    # B-tree for System.Tables table
-    # B-tree for System.Fields table
-    # B-tree for System.Indexes table
+    # B-tree for _TABLES table
+    # B-tree for _FIELDS table
+    # B-tree for _INDEXES table
     # B-tree's for user-defined tables
     # ...
 
-  * design and implement the four system tables
+  * design and implement the three system tables
 
-    # System.Tables
+    # _TABLES
       -----------------------------------------------------------------
       FIELD    | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -44,7 +44,7 @@ General
       -----------------------------------------------------------------
       - Record size: 64 bytes
 
-    # System.Fields
+    # _FIELDS
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -56,7 +56,7 @@ General
       -----------------------------------------------------------------
       - Record size: 128 bytes
 
-    # System.Indexes
+    # _INDEXES
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------

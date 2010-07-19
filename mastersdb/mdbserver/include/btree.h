@@ -32,7 +32,11 @@
  * 27.03.2010
  *  Updated all functions to use double pointers and return integers.
  * 05.03.2010
- *  Moved the CompareKeyPtr declaration to common.h
+ *  Moved the CompareKeyPtr declaration to common.h.
+ * 14.07.2010
+ *  Changed record size and node size to be of type uint32 (long).
+ * 15.07.2010
+ *  Added root_position element to BtreeMeta structure.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -46,10 +50,11 @@ typedef struct mdbBtree     mdbBtree;
 typedef struct mdbBtreeNode mdbBtreeNode;
 
 /* B-tree node retrieval function */
-typedef mdbBtreeNode* (*BtreeLoadNodePtr)(const ulong position, mdbBtree* tree);
+typedef mdbBtreeNode* (*BtreeLoadNodePtr)
+    (const uint32 position, mdbBtree* tree);
 
 /* B-tree node write-out function */
-typedef ulong (*BtreeWriteNodePtr)(mdbBtreeNode* node);
+typedef uint32 (*BtreeWriteNodePtr)(mdbBtreeNode* node);
 
 /* B-tree node deletion function */
 typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
@@ -58,9 +63,10 @@ typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
 struct mdbBtreeMeta
 {
   uint16 t;               /* B-tree order (minimal children count)  */
-  uint16 record_size;     /* size of a record                       */
+  uint32 record_size;     /* size of a record                       */
   uint16 key_size;        /* size of the primary key                */
   uint16 key_position;    /* position of the primary key            */
+  uint32 root_position;   /* position of the root node in the file  */
 };
 
 /* B-tree structure */
@@ -68,7 +74,7 @@ struct mdbBtree
 {
   mdbBtreeMeta meta;              /* node meta-data                          */
   mdbBtreeNode* root;             /* pointer to root node (preloaded)        */
-  uint16 nodeSize;                /* size of a node                          */
+  uint32 nodeSize;                /* size of a node                          */
   CompareKeysPtr CompareKeys;     /* pointer to key comparison function      */
   BtreeLoadNodePtr ReadNode;      /* node retrieval implementation           */
   BtreeWriteNodePtr WriteNode;    /* node write-out implementation           */
@@ -82,9 +88,9 @@ struct mdbBtreeNode
   byte *data;             /* raw data of the node                   */
   uint16 *record_count;   /* pointer to count of records            */
   uint16 *is_leaf;        /* pointer to leaf/internal information   */
-  ulong *children;        /* pointer to child pointer array         */
+  uint32 *children;       /* pointer to child pointer array         */
   byte *records;          /* pointer to records                     */
-  ulong position;         /* position of node (data file)           */
+  uint32 position;        /* position of node (data file)           */
 };
 
 /* B-tree allocation and initialization */
@@ -145,6 +151,7 @@ int mdbBtreeDelete(const byte* key, mdbBtree* t);
 #define BT_KEYPOS(node)     node->T->meta.key_position
 #define BT_RECSIZE(node)    node->T->meta.record_size
 #define BT_ORDER(node)      node->T->meta.t
+#define BT_ROOTPOS(node)    node->T->meta.root_position
 
 /* Tests whether the left key is greater, less or equal than the right one */
 #define BT_KEYCMP(k1,op,k2,node) \
@@ -160,11 +167,11 @@ int mdbBtreeDelete(const byte* key, mdbBtree* t);
 
 /* Copies N child pointers between two nodes */
 #define BT_COPYCHILDREN(dest,D,src,S,N) \
-  memcpy(&dest->children[(D)],&src->children[(S)],(N)*sizeof(ulong))
+  memcpy(&dest->children[(D)],&src->children[(S)],(N)*sizeof(uint32))
 
 /* Moves N child pointers in a node */
 #define BT_MOVECHILDREN(node,D,S,N) \
-  memmove(&node->children[(D)],&node->children[(S)],(N)*sizeof(ulong))
+  memmove(&node->children[(D)],&node->children[(S)],(N)*sizeof(uint32))
 
 /* Replaces the i-th key of a node with its predecessor */
 #define BT_COPYPREDECESSOR(node,P,src) \
