@@ -43,6 +43,8 @@
  *  Fixed several bugs in deletion.
  * 27.03.2010
  *  Updated code to reflect changes (double pointers, integer return values).
+ * 19.07.2010
+ *  Updating the types to be uint32 or char* (before uint16 and byte*).
  */
 
 #include "btree.h"
@@ -50,20 +52,23 @@
 /*
  * B-tree allocation and initialization
  */
-int mdbBtreeCreateTree(mdbBtree** tree, const uint16 t,
-    const uint16 record_size, const uint16 key_size, const uint16 key_position)
+int mdbBtreeCreateTree(mdbBtree** tree,
+    const uint32 order,
+    const uint32 record_size,
+    const uint32 key_size,
+    const uint32 key_position)
 {
   /* allocates a B-tree structure */
   *tree = (mdbBtree*) malloc(sizeof(mdbBtree));
 
   /* initializes the B-tree structure */
-  (*tree)->meta.t = t;
+  (*tree)->meta.order = order;
   (*tree)->meta.record_size = record_size;
   (*tree)->meta.key_size = key_size;
   (*tree)->meta.key_position = key_position;
   (*tree)->meta.root_position = 0L;
-  (*tree)->nodeSize = ((*tree)->meta.t << 1) * ((*tree)->meta.record_size + 4)
-      - (*tree)->meta.record_size + 4;
+  (*tree)->nodeSize = 2 * ((*tree)->meta.order + 1) * sizeof(uint32) +
+      (2 * (*tree)->meta.order - 1) * (*tree)->meta.record_size;
 
   return MDB_BTREE_SUCCESS;
 }
@@ -86,14 +91,14 @@ int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
   *node = (mdbBtreeNode*) malloc(sizeof(mdbBtreeNode));
 
   /* Allocates the memory */
-  (*node)->data = (byte*) malloc(tree->nodeSize);
+  (*node)->data = (char*) malloc(tree->nodeSize);
   memset((*node)->data, 0, tree->nodeSize);
 
   /* Initializes the data pointers */
-  (*node)->record_count = (uint16*) (*node)->data;
+  (*node)->record_count = (uint32*)(*node)->data;
   (*node)->is_leaf = (*node)->record_count + 1;
-  (*node)->children = (uint32*) ((*node)->is_leaf + 1);
-  (*node)->records = (byte*) ((*node)->children + (tree->meta.t << 1));
+  (*node)->children = (uint32*)((*node)->is_leaf + 1);
+  (*node)->records = (char*)((*node)->children + (tree->meta.order << 1));
   (*node)->T = tree;
   (*node)->position = 0L;
 
@@ -103,11 +108,11 @@ int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-int mdbBtreeSearchRecursive(const byte* key, byte** record, mdbBtreeNode* node)
+int mdbBtreeSearchRecursive(const char* key, char** record, mdbBtreeNode* node)
 {
   mdbBtreeNode* next = NULL;
   int result = 0;
-  uint16 i = 0;
+  uint32 i = 0;
 
   while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i),node))
   {
@@ -119,7 +124,7 @@ int mdbBtreeSearchRecursive(const byte* key, byte** record, mdbBtreeNode* node)
   {
     if (BT_KEYCMP(key, == ,BT_KEY(node,i),node))
     {
-      *record = (byte*) malloc(BT_RECSIZE(node));
+      *record = (char*) malloc(BT_RECSIZE(node));
       memcpy(*record, BT_RECORD(node,i), BT_RECSIZE(node));
       return MDB_BTREE_SEARCH_FOUND;
     }
@@ -146,7 +151,7 @@ int mdbBtreeSearchRecursive(const byte* key, byte** record, mdbBtreeNode* node)
 /*
  * B-tree search function
  */
-int mdbBtreeSearch(const byte* key, byte** record, mdbBtree* t)
+int mdbBtreeSearch(const char* key, char** record, mdbBtree* t)
 {
   if (t->root != NULL)
   {
@@ -162,7 +167,7 @@ int mdbBtreeSearch(const byte* key, byte** record, mdbBtree* t)
  * Internal function for splitting a full node
  */
 void mdbBtreeSplitNode(mdbBtreeNode* left, mdbBtreeNode* parent,
-    const uint16 position)
+    const uint32 position)
 {
   mdbBtreeNode* right = NULL;
   mdbBtreeAllocateNode(&right, left->T);
@@ -205,10 +210,10 @@ void mdbBtreeSplitNode(mdbBtreeNode* left, mdbBtreeNode* parent,
 /*
  * Recursive B-tree insertion (internal, not visible to the programmer)
  */
-int mdbBtreeInsertRecursive(const byte* record, mdbBtreeNode* node)
+int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
 {
   mdbBtreeNode* next = NULL;
-  uint16 i = 0;
+  uint32 i = 0;
   int result = 0;
 
   while (i < BT_COUNT(node) &&
@@ -277,7 +282,7 @@ int mdbBtreeInsertRecursive(const byte* record, mdbBtreeNode* node)
 /*
  * B-tree insertion function
  */
-int mdbBtreeInsert(const byte* record, mdbBtree* t)
+int mdbBtreeInsert(const char* record, mdbBtree* t)
 {
   mdbBtreeNode* newRoot = NULL;
 
@@ -313,7 +318,7 @@ int mdbBtreeInsert(const byte* record, mdbBtree* t)
  * Internal function for merging two child nodes with median from parent
  */
 void mdbBtreeMergeNodes(mdbBtreeNode* left, mdbBtreeNode* right,
-    mdbBtreeNode* parent, const uint16 median)
+    mdbBtreeNode* parent, const uint32 median)
 {
   /* -----------------------------------------------------------------*/
   /* update the left child node */
@@ -361,12 +366,12 @@ void mdbBtreeMergeNodes(mdbBtreeNode* left, mdbBtreeNode* right,
 /*
  * Internal recursive B-tree deletion function
  */
-int mdbBtreeDeleteRecursive(const byte* key, mdbBtreeNode* node)
+int mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
 {
   mdbBtreeNode* left = NULL;
   mdbBtreeNode* right = NULL;
   mdbBtreeNode* next = NULL;
-  uint16 i = 0;
+  uint32 i = 0;
   int result = 0;
 
   while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i), node))
@@ -590,7 +595,7 @@ int mdbBtreeDeleteRecursive(const byte* key, mdbBtreeNode* node)
 /*
  * B-tree deletion function
  */
-int mdbBtreeDelete(const byte* key, mdbBtree* t)
+int mdbBtreeDelete(const char* key, mdbBtree* t)
 {
   mdbBtreeNode *newRoot = NULL;
 

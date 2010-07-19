@@ -37,6 +37,8 @@
  *  Changed record size and node size to be of type uint32 (long).
  * 15.07.2010
  *  Added root_position element to BtreeMeta structure.
+ * 19.07.2010
+ *  Updating the types to be uint32 or char* (before uint16 and byte*).
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -62,19 +64,19 @@ typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
 /* B-tree node meta-data */
 struct mdbBtreeMeta
 {
-  uint16 t;               /* B-tree order (minimal children count)  */
   uint32 record_size;     /* size of a record                       */
-  uint16 key_size;        /* size of the primary key                */
-  uint16 key_position;    /* position of the primary key            */
+  uint32 key_size;        /* size of the primary key                */
+  uint32 key_position;    /* position of the primary key            */
   uint32 root_position;   /* position of the root node in the file  */
+  uint32 order;           /* B-tree order (minimal children count)  */
 };
 
 /* B-tree structure */
 struct mdbBtree
 {
   mdbBtreeMeta meta;              /* node meta-data                          */
-  mdbBtreeNode* root;             /* pointer to root node (preloaded)        */
   uint32 nodeSize;                /* size of a node                          */
+  mdbBtreeNode* root;             /* pointer to root node (preloaded)        */
   CompareKeysPtr CompareKeys;     /* pointer to key comparison function      */
   BtreeLoadNodePtr ReadNode;      /* node retrieval implementation           */
   BtreeWriteNodePtr WriteNode;    /* node write-out implementation           */
@@ -85,29 +87,32 @@ struct mdbBtree
 struct mdbBtreeNode
 {
   mdbBtree* T;            /* pointer to the B-tree                  */
-  byte *data;             /* raw data of the node                   */
-  uint16 *record_count;   /* pointer to count of records            */
-  uint16 *is_leaf;        /* pointer to leaf/internal information   */
+  char *data;             /* raw data of the node                   */
+  uint32 *record_count;   /* pointer to count of records            */
+  uint32 *is_leaf;        /* pointer to leaf/internal information   */
   uint32 *children;       /* pointer to child pointer array         */
-  byte *records;          /* pointer to records                     */
+  char *records;          /* pointer to records                     */
   uint32 position;        /* position of node (data file)           */
 };
 
 /* B-tree allocation and initialization */
-int mdbBtreeCreateTree(mdbBtree** tree, const uint16 t,
-    const uint16 record_size, const uint16 key_size, const uint16 key_position);
+int mdbBtreeCreateTree(mdbBtree** tree,
+    const uint32 order,
+    const uint32 record_size,
+    const uint32 key_size,
+    const uint32 key_position);
 
 /* B-tree node allocation function */
 int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
 
 /* B-tree search */
-int mdbBtreeSearch(const byte* key, byte** record, mdbBtree* t);
+int mdbBtreeSearch(const char* key, char** record, mdbBtree* t);
 
 /* B-tree insertion */
-int mdbBtreeInsert(const byte* record, mdbBtree* t);
+int mdbBtreeInsert(const char* record, mdbBtree* t);
 
 /* B-tree deletion */
-int mdbBtreeDelete(const byte* key, mdbBtree* t);
+int mdbBtreeDelete(const char* key, mdbBtree* t);
 
 /* General return values */
 #define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */
@@ -150,7 +155,7 @@ int mdbBtreeDelete(const byte* key, mdbBtree* t);
 #define BT_KEYSIZE(node)    node->T->meta.key_size
 #define BT_KEYPOS(node)     node->T->meta.key_position
 #define BT_RECSIZE(node)    node->T->meta.record_size
-#define BT_ORDER(node)      node->T->meta.t
+#define BT_ORDER(node)      node->T->meta.order
 #define BT_ROOTPOS(node)    node->T->meta.root_position
 
 /* Tests whether the left key is greater, less or equal than the right one */
