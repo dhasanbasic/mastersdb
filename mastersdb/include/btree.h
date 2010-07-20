@@ -40,6 +40,8 @@
  * 19.07.2010
  *  Updating the types to be uint32 or char* (before uint16 and byte*).
  *  Added dummy implementations for ReadNode, WriteNode and DeleteNode.
+ * 20.07.2010
+ *  Added new utility macro for calculating a B-tree's node size.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -143,6 +145,11 @@ void mdbDummyDeleteNode(mdbBtreeNode* node);
 /************************************************
  * Utility macros (for better code readability) *
  ************************************************/
+
+/* Calculates and stores the node size of a B-tree */
+#define BT_CALC_NODESIZE(tree) \
+  (tree)->nodeSize = 2 * ((tree)->meta.order + 1) * sizeof(uint32) + \
+  (2 * (tree)->meta.order - 1) * (tree)->meta.record_size
 
 /* Returns a pointer to the i-th record of a node */
 #define BT_RECORD(node,i)   (node->records + (i) * BT_RECSIZE(node))

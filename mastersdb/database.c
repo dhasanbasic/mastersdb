@@ -21,11 +21,13 @@
  * Revision history
  * ----------------
  * 13.07.2010
- *    Initial version of file.
+ *  Initial version of file.
  * 14.07.2010
- *    Implemented a utility function for the system tables creation.
- * 15.07.2010
- *    Finished implementation of system tables creation utility function.
+ *  Implemented a utility function for the system tables creation.
+ * 19.07.2010
+ *  Finished implementation of system tables creation utility function.
+ * 20.07.2010
+ *  Implemented remaining database functions.
  */
 
 #include "database.h"
@@ -164,55 +166,118 @@ void mdbCreateSystemTables(mdbDatabase *db)
 
 }
 
-
-/* Creates an empty MastersDB database */
-mdbDatabase* mdbCreateDatabase(const char* filename)
+int mdbCreateDatabase(mdbDatabase **db, const char *filename)
 {
-  char buffer[256];
-  mdbDatabase *db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
+  mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
 
   /* creates the MastersDB header */
-  memset(&db->meta, 0, sizeof(mdbDatabaseMeta));
-  db->meta.magic_number = MDB_MAGIC_NUMBER;
-  db->meta.mdb_version = MDB_VERSION;
+  memset(&l_db->meta, 0, sizeof(mdbDatabaseMeta));
+  l_db->meta.magic_number = MDB_MAGIC_NUMBER;
+  l_db->meta.mdb_version = MDB_VERSION;
 
-  /* writes the MastersDB header to a file */
-  strcpy(buffer, filename);
-  strcat(buffer,".mrdb");
-
-  if ((db->file = fopen(&buffer[0], "wb")) != NULL)
+  /* writes the MastersDB header and meta-data to a file */
+  if ((l_db->file = fopen(filename, "wb")) != NULL)
   {
-    mdbCreateSystemTables(db);
+    mdbCreateSystemTables(l_db);
 
     /* positions of the database system tables (B-tree + root node) */
-    db->meta.sys_tables[0] = sizeof(mdbDatabaseMeta);
-    db->meta.sys_tables[1] = db->meta.sys_tables[0] + sizeof(mdbBtreeMeta);
-    db->meta.sys_tables[2] = db->meta.sys_tables[1] + sizeof(mdbBtreeMeta);
+    l_db->meta.sys_tables[0] = sizeof(mdbDatabaseMeta);
+    l_db->meta.sys_tables[1] = l_db->meta.sys_tables[0] + sizeof(mdbBtreeMeta);
+    l_db->meta.sys_tables[2] = l_db->meta.sys_tables[1] + sizeof(mdbBtreeMeta);
 
-    db->tables->meta.root_position =
-        db->meta.sys_tables[2] + sizeof(mdbBtreeMeta);
+    l_db->tables->meta.root_position =
+        l_db->meta.sys_tables[2] + sizeof(mdbBtreeMeta);
 
-    db->fields->meta.root_position = db->tables->meta.root_position
-        + db->tables->nodeSize;
+    l_db->fields->meta.root_position = l_db->tables->meta.root_position
+        + l_db->tables->nodeSize;
 
-    db->indexes->meta.root_position = db->fields->meta.root_position
-        + db->fields->nodeSize;
+    l_db->indexes->meta.root_position = l_db->fields->meta.root_position
+        + l_db->fields->nodeSize;
 
     /* writes all meta data to the empty database */
-    fwrite(&db->meta,sizeof(mdbDatabaseMeta),1,db->file);
-    fwrite(&db->tables->meta,sizeof(mdbBtreeMeta),1,db->file);
-    fwrite(&db->fields->meta,sizeof(mdbBtreeMeta),1,db->file);
-    fwrite(&db->indexes->meta,sizeof(mdbBtreeMeta),1,db->file);
-    fwrite(db->tables->root->data,db->tables->nodeSize,1,db->file);
-    fwrite(db->fields->root->data,db->fields->nodeSize,1,db->file);
-    fwrite(db->indexes->root->data,db->indexes->nodeSize,1,db->file);
-    fclose(db->file);
+    fwrite(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
+    fwrite(&l_db->tables->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&l_db->fields->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&l_db->indexes->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(l_db->tables->root->data, l_db->tables->nodeSize, 1, l_db->file);
+    fwrite(l_db->fields->root->data, l_db->fields->nodeSize, 1, l_db->file);
+    fwrite(l_db->indexes->root->data, l_db->indexes->nodeSize, 1, l_db->file);
+    fclose(l_db->file);
   }
   else
   {
-    free(db);
-    return NULL;
+    free(l_db);
+    return MDB_DATABASE_NOFILE;
   }
 
-  return db;
+  *db = l_db;
+  return MDB_DATABASE_SUCCESS;
+}
+
+int mdbOpenDatabase(mdbDatabase **db, const char *filename)
+{
+  mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
+
+  /* creates the MastersDB header */
+  memset(&l_db->meta, 0, sizeof(mdbDatabaseMeta));
+
+  /* reads the MastersDB header and meta-data from a file */
+  if ((l_db->file = fopen(filename, "rb+")) != NULL)
+  {
+    /* checks the file size */
+    fseek(l_db->file, 0L, SEEK_END);
+    if (ftell(l_db->file) < sizeof(mdbDatabaseMeta))
+    {
+      free(l_db);
+      return MDB_DATABASE_INVALIDFILE;
+    }
+
+    /* reads the header and checks the magic number and version */
+    fseek(l_db->file, 0L, SEEK_SET);
+    fread(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
+    if (l_db->meta.magic_number != MDB_MAGIC_NUMBER ||
+        l_db->meta.mdb_version != MDB_VERSION)
+    {
+      free(l_db);
+      return MDB_DATABASE_INVALIDFILE;
+    }
+
+    /* allocates the memory for the system table B-tree descriptors */
+    l_db->tables = (mdbBtree*)malloc(sizeof(mdbBtree));
+    l_db->fields = (mdbBtree*)malloc(sizeof(mdbBtree));
+    l_db->indexes = (mdbBtree*)malloc(sizeof(mdbBtree));
+
+    /* reads the system table B-tree descriptors into memory */
+    fread(&l_db->tables->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    fread(&l_db->fields->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    fread(&l_db->indexes->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+
+    BT_CALC_NODESIZE(l_db->tables);
+    BT_CALC_NODESIZE(l_db->fields);
+    BT_CALC_NODESIZE(l_db->indexes);
+
+    /* allocates the memory for the system table root nodes */
+    mdbBtreeAllocateNode(&l_db->tables->root,l_db->tables);
+    mdbBtreeAllocateNode(&l_db->fields->root,l_db->fields);
+    mdbBtreeAllocateNode(&l_db->indexes->root,l_db->indexes);
+
+    /* reads the system table root nodes into memory */
+    fread(l_db->tables->root->data, l_db->tables->nodeSize, 1, l_db->file);
+    fread(l_db->fields->root->data, l_db->fields->nodeSize, 1, l_db->file);
+    fread(l_db->indexes->root->data, l_db->indexes->nodeSize, 1, l_db->file);
+  }
+  else
+  {
+    free(l_db);
+    return MDB_DATABASE_NOFILE;
+  }
+
+  *db = l_db;
+  return MDB_DATABASE_SUCCESS;
+}
+
+/* Loads an existing MastersDB database, including header check */
+int mdbCloseDatabase(const mdbDatabase *db)
+{
+  return MDB_DATABASE_SUCCESS;
 }

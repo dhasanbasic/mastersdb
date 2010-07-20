@@ -27,6 +27,8 @@
  *  and indexes.
  * 19.07.2010
  *  Reordered fields in the data structures to avoid data alignment.
+ * 20.07.2010
+ *  Added prototypes for the remaining database functions.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -44,11 +46,18 @@ typedef struct mdbField mdbField;
 typedef struct mdbIndex mdbIndex;
 
 /* Creates an empty MastersDB database */
-mdbDatabase* mdbCreateDatabase(const char* filename);
+int mdbCreateDatabase(mdbDatabase **db, const char *filename);
+
+/* Loads an existing MastersDB database, including header check */
+int mdbOpenDatabase(mdbDatabase **db, const char *filename);
+
+/* Loads an existing MastersDB database, including header check */
+int mdbCloseDatabase(const mdbDatabase *db);
 
 /* General return values */
 #define MDB_DATABASE_SUCCESS          1  /* Database creation succeeded      */
-#define MDB_DATABASE_NOFILE           0  /* Database creation failure (I/O)  */
+#define MDB_DATABASE_NOFILE          -1  /* Database creation failure (I/O)  */
+#define MDB_DATABASE_INVALIDFILE     -2  /* Tried to open invalid file       */
 
 /* System tables B-tree parameters */
 #define MDB_TABLES_ORDER          964

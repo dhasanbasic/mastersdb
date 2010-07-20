@@ -67,8 +67,8 @@ int mdbBtreeCreateTree(mdbBtree** tree,
   (*tree)->meta.key_size = key_size;
   (*tree)->meta.key_position = key_position;
   (*tree)->meta.root_position = 0L;
-  (*tree)->nodeSize = 2 * ((*tree)->meta.order + 1) * sizeof(uint32) +
-      (2 * (*tree)->meta.order - 1) * (*tree)->meta.record_size;
+
+  BT_CALC_NODESIZE(*tree);
 
   /* default comparison function */
   (*tree)->CompareKeys = &memcmp;

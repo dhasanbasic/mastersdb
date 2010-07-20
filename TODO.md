@@ -5,9 +5,8 @@
 
 Active development
 ------------------
-  * implement mdbCreateDatabase, mdbOpenDatabase and mdbCloseDatabase
-    for creating, loading and storing the main database information like
-    file header, system tables, free table etc.
+  * implement mdbCloseDatabase for freeing used resources
+  * extend the dummy implementations of mbdBtree{Read,Write}Node functions
   
 Pending
 -------
@@ -81,6 +80,10 @@ Finished
       B+ tree        | INT-32 | N/A    | 4    | Pointer to B+ tree
       -----------------------------------------------------------------
       - Record size: 68 bytes
+
+  * implement mdbCreateDatabase for creating an empty MastersDB database
+  
+  * implement mdbOpenDatabase for loading database meta data into memory
 
 Optimizations
 -------------
