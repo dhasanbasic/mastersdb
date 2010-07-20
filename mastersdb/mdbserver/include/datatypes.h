@@ -42,7 +42,7 @@ typedef struct mdbDatatype mdbDatatype;
 #define MDB_TYPE_COUNT  6
 
 struct mdbDatatype {
-  byte name[8];           /* upper-case name, including null char.          */
+  char name[8];           /* upper-case name, including null char.          */
   byte length;            /* length of the name                             */
   byte header;            /* length of header information (0 if not used)   */
   byte size;              /* size of the value, 0 for varying-size types    */
@@ -57,7 +57,8 @@ int mdbCompareUnicode(const void* v1, const void* v2, uint32 size);
 void mdbInitializeTypes(mdbDatatype **typetable);
 
 /* retrieves a data type's information based on the name provided */
-mdbDatatype* mdbGetTypeInfo(const byte *name, const byte length,
+mdbDatatype* mdbGetTypeInfo(const char *name,
+    const byte length,
     mdbDatatype *typetable);
 
 #endif /* DATATYPES_H_ */

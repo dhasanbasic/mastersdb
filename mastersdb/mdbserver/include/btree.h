@@ -39,6 +39,7 @@
  *  Added root_position element to BtreeMeta structure.
  * 19.07.2010
  *  Updating the types to be uint32 or char* (before uint16 and byte*).
+ *  Added dummy implementations for ReadNode, WriteNode and DeleteNode.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -113,6 +114,11 @@ int mdbBtreeInsert(const char* record, mdbBtree* t);
 
 /* B-tree deletion */
 int mdbBtreeDelete(const char* key, mdbBtree* t);
+
+/* Dummy implementations for ReadNode, WriteNode and DeleteNode (prototypes) */
+mdbBtreeNode* mdbDummyReadNode(const uint32 position, mdbBtree* tree);
+uint32 mdbDummyWriteNode(mdbBtreeNode* node);
+void mdbDummyDeleteNode(mdbBtreeNode* node);
 
 /* General return values */
 #define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */

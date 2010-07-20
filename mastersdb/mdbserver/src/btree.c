@@ -70,6 +70,9 @@ int mdbBtreeCreateTree(mdbBtree** tree,
   (*tree)->nodeSize = 2 * ((*tree)->meta.order + 1) * sizeof(uint32) +
       (2 * (*tree)->meta.order - 1) * (*tree)->meta.record_size;
 
+  /* default comparison function */
+  (*tree)->CompareKeys = &memcmp;
+
   return MDB_BTREE_SUCCESS;
 }
 
@@ -629,3 +632,18 @@ int mdbBtreeDelete(const char* key, mdbBtree* t)
     return MDB_BTREE_DELETE_NOROOT;
   }
 }
+
+mdbBtreeNode* mdbDummyReadNode(const uint32 position, mdbBtree* tree)
+{
+  return NULL;
+}
+
+uint32 mdbDummyWriteNode(mdbBtreeNode* node)
+{
+  return 0L;
+}
+
+void mdbDummyDeleteNode(mdbBtreeNode* node)
+{
+}
+

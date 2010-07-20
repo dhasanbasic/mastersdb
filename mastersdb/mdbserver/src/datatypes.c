@@ -58,7 +58,8 @@ void mdbInitializeTypes(mdbDatatype **typetable)
     &mdbCompareUnicode};
 }
 
-mdbDatatype* mdbGetTypeInfo(const byte *name, const byte length,
+mdbDatatype* mdbGetTypeInfo(const char *name,
+    const byte length,
     mdbDatatype *typetable)
 {
   byte i = 0;
@@ -66,7 +67,7 @@ mdbDatatype* mdbGetTypeInfo(const byte *name, const byte length,
   while (i < MDB_TYPE_COUNT) {
     /* if name length equals from given length, check if the names are equal */
     if (length == typetable[i].length) {
-      if (!strncmp((char*)name,(char*)typetable[i].name,length)) {
+      if (!strncmp(name,typetable[i].name,length)) {
         return &typetable[i];
       }
     }

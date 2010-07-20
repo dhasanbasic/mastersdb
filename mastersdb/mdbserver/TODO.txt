@@ -3,8 +3,25 @@
 -----------------------------------
                       Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
 
-General
--------    
+Active development
+------------------
+  * implement mdbCreateDatabase, mdbOpenDatabase and mdbCloseDatabase
+    for creating, loading and storing the main database information like
+    file header, system tables, free table etc.
+  
+Pending
+-------
+  * ensure that the mdbBtree* functions are aware of the data type of the
+    primary key
+  * design and implement an SQL Engine/Parser
+  * design and implement an object oriented wrapper around the database API
+  * design and implement the B+-tree structure (secondary indexes)
+
+Finished
+--------
+  * implement a B-tree with "order" being the minimum children count
+    instead of minimum record count
+    
   * implement support for following data types:
     ** NAME     NAME LENGTH  HEADER  SIZE (B)  COMPARISON FUNCTION
        INT-8    5            0       1         Standard C -> memcmp
@@ -22,8 +39,8 @@ General
     # MastersDB format magic number & version              4 bytes
     # MastersDB format header
       - 3 entry B-tree descriptor table (system tables) ( 12 bytes)
-      - 16 entry B-tree descriptor table                ( 64 bytes)
-      - 30 entry free blocks table (6 bytes each)       (180 bytes)
+      - 20 entry B-tree descriptor table                ( 80 bytes)
+      - 20 entry free blocks table (8 bytes each)       (160 bytes)
       --------------------------------------------------------------
       - TOTAL                                            256 bytes
     # B-tree for _TABLES table
@@ -48,11 +65,11 @@ General
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | CHAR-8 | 58     | 62   | Name of the field
-      Name           | CHAR-8 | 45     | 49   | Name of the field
+      (#)Identifier  | CHAR-8 | 60     | 64   | Name of the field
       Type           | CHAR-8 | 8      | 12   | Name of the data type
-      Length         | INT-32 | N/A    | 4    | Maximum data length
+      Name           | CHAR-8 | 43     | 47   | Name of the field
       Indexed        | INT-8  | N/A    | 1    | Field is indexed
+      Length         | INT-32 | N/A    | 4    | Maximum data length
       -----------------------------------------------------------------
       - Record size: 128 bytes
 
@@ -60,10 +77,10 @@ General
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | CHAR-8 | 58     | 62   | Name of the field
+      (#)Identifier  | CHAR-8 | 60     | 64   | Name of the field
       B+ tree        | INT-32 | N/A    | 4    | Pointer to B+ tree
       -----------------------------------------------------------------
-      - Record size: 66 bytes
+      - Record size: 68 bytes
 
 Optimizations
 -------------

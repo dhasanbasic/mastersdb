@@ -21,10 +21,12 @@
  * Revision history
  * ----------------
  * 13.07.2010
- *    Initial version of file.
+ *  Initial version of file.
  * 15.07.2010
- *    Added system table constants and structures for tables, fields
- *    and indexes.
+ *  Added system table constants and structures for tables, fields
+ *  and indexes.
+ * 19.07.2010
+ *  Reordered fields in the data structures to avoid data alignment.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -53,17 +55,16 @@ mdbDatabase* mdbCreateDatabase(const char* filename);
 #define MDB_TABLES_KEY_SIZE       59
 
 #define MDB_FIELDS_ORDER          7944
-#define MDB_FIELDS_KEY_SIZE       62
+#define MDB_FIELDS_KEY_SIZE       64
 
-#define MDB_INDEXES_ORDER         7490
-#define MDB_INDEXES_KEY_SIZE      62
+#define MDB_INDEXES_ORDER         7282
+#define MDB_INDEXES_KEY_SIZE      64
 
 /* MastersDB free entry (element of free entry table) */
 struct mdbFreeEntry
 {
-  uint16 size;                  /* Size of free block (in bytes)    */
-  uint32 position __attribute__ ((packed));
-                                /* Position of free block in file   */
+  uint32 size;                  /* Size of free block (in bytes)    */
+  uint32 position;              /* Position of free block in file   */
 };
 
 /* MastersDB database meta data */
@@ -72,8 +73,8 @@ struct mdbDatabaseMeta
   uint16 magic_number;          /* MastersDB format magic number    */
   uint16 mdb_version;           /* MastersDB version                */
   uint32 sys_tables[3];         /* System tables B-tree positions   */
-  uint32 usr_tables[16];        /* User tables B-tree positions     */
-  mdbFreeEntry free_space[30];  /* Free blocks table                */
+  uint32 usr_tables[20];        /* User tables B-tree positions     */
+  mdbFreeEntry free_space[20];  /* Free blocks table                */
 };
 
 /* MastersDB database runtime information */
@@ -99,20 +100,20 @@ struct mdbTable
 struct mdbField
 {
   uint32 id_header;             /* Length of field identifier       */
-  char id[58];                  /* Field identifier (table_name + N)*/
-  uint32 name_header;           /* Length of field name             */
-  char name[45];                /* field name                       */
+  char id[60];                  /* Field identifier (table_name + N)*/
   uint32 type_header;           /* Length of data type name         */
   char type[8];                 /* Data type name                   */
-  uint32 length;                /* max. length of the field value   */
+  uint32 name_header;           /* Length of field name             */
+  char name[43];                /* field name                       */
   byte indexed;                 /* >0 = The field is indexed        */
+  uint32 length;                /* max. length of the field value   */
 };
 
 /* MastersDB index record */
 struct mdbIndex
 {
   uint32 id_header;             /* Length of index identifier       */
-  char id[58];                  /* Index identifier (field id)      */
+  char id[60];                  /* Index identifier (field id)      */
   uint32 btree;                 /* Pointer to B+-tree in the file   */
 };
 

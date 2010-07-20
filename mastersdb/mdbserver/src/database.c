@@ -44,44 +44,57 @@ void mdbCreateSystemTables(mdbDatabase *db)
       &db->tables, MDB_TABLES_ORDER,
       sizeof(mdbTable), MDB_TABLES_KEY_SIZE, 0);
 
+  mdbBtreeAllocateNode(&(db->tables->root), db->tables);
+  *(db->tables->root->is_leaf) = 1L;
+
+  db->tables->ReadNode = &mdbDummyReadNode;
+  db->tables->WriteNode = &mdbDummyWriteNode;
+  db->tables->DeleteNode = &mdbDummyDeleteNode;
+
   /* _FIELDS - at order 7944 the node size is approximately 2 MB */
   retValue = mdbBtreeCreateTree(
       &db->fields, MDB_FIELDS_ORDER,
       sizeof(mdbField), MDB_FIELDS_KEY_SIZE, 0);
 
-  /* _INDEXES - at order 7490 the node size is approximately 1 MB */
+  mdbBtreeAllocateNode(&(db->fields->root), db->fields);
+  *(db->fields->root->is_leaf) = 1L;
+
+  db->fields->ReadNode = &mdbDummyReadNode;
+  db->fields->WriteNode = &mdbDummyWriteNode;
+  db->fields->DeleteNode = &mdbDummyDeleteNode;
+
+  /* _INDEXES - at order 7282 the node size is approximately 1 MB */
   retValue = mdbBtreeCreateTree(
       &db->indexes, MDB_INDEXES_ORDER,
       sizeof(mdbIndex), MDB_INDEXES_KEY_SIZE, 0);
+
+  mdbBtreeAllocateNode(&(db->indexes->root), db->indexes);
+  *(db->indexes->root->is_leaf) = 1L;
+
+  db->indexes->ReadNode = &mdbDummyReadNode;
+  db->indexes->WriteNode = &mdbDummyWriteNode;
+  db->indexes->DeleteNode = &mdbDummyDeleteNode;
 
   /* --------- _TABLES table ---------- */
 
   strcpy(table.name, "_TABLES"); table.name_header = strlen(table.name);
   table.num_fields = 3;
   table.btree = sizeof(mdbDatabaseMeta);
-  mdbBtreeInsert((byte*)(&table), db->tables);
+  mdbBtreeInsert((char*)(&table), db->tables);
 
   /* --------- _FIELDS table ---------- */
 
   strcpy(table.name, "_FIELDS"); table.name_header = strlen(table.name);
   table.num_fields = 6;
   table.btree += sizeof(mdbBtreeMeta);
-  mdbBtreeInsert((byte*)(&table), db->tables);
+  mdbBtreeInsert((char*)(&table), db->tables);
 
   /* --------- _INDEXES table ---------- */
 
   strcpy(table.name, "_INDEXES"); table.name_header = strlen(table.name);
   table.num_fields = 2;
   table.btree += sizeof(mdbBtreeMeta);
-  mdbBtreeInsert((byte*)(&table), db->tables);
-
-  db->tables->meta.root_position = table.btree + sizeof(mdbBtreeMeta);
-
-  db->fields->meta.root_position = db->tables->meta.root_position
-      + db->tables->nodeSize;
-
-  db->indexes->meta.root_position = db->fields->meta.root_position
-      + db->fields->nodeSize;
+  mdbBtreeInsert((char*)(&table), db->tables);
 
   /* --------- _TABLES fields ---------- */
 
@@ -89,51 +102,51 @@ void mdbCreateSystemTables(mdbDatabase *db)
   strcpy(field.name, "NAME"); field.name_header = strlen(field.name);
   strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
   field.length = 55L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   strcpy(field.id, "_TABLES001"); field.id_header = strlen(field.id);
   strcpy(field.name, "NUM_FIELDS"); field.name_header = strlen(field.name);
   strcpy(field.type, "INT-8"); field.type_header = strlen(field.type);
   field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   strcpy(field.id, "_TABLES002"); field.id_header = strlen(field.id);
   strcpy(field.name, "B-TREE"); field.name_header = strlen(field.name);
   strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
   field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   /* --------- _FIELDS fields ---------- */
 
   strcpy(field.id, "_FIELDS000"); field.id_header = strlen(field.id);
   strcpy(field.name, "ID"); field.name_header = strlen(field.name);
   strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
-  field.length = 58L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  field.length = 60L; field.indexed = 0;
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   strcpy(field.id, "_FIELDS001"); field.id_header = strlen(field.id);
-  strcpy(field.name, "NAME"); field.name_header = strlen(field.name);
-  strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
-  field.length = 45L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
-
-  strcpy(field.id, "_FIELDS002"); field.id_header = strlen(field.id);
   strcpy(field.name, "DATATYPE"); field.name_header = strlen(field.name);
   strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
   field.length = 8L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
+
+  strcpy(field.id, "_FIELDS002"); field.id_header = strlen(field.id);
+  strcpy(field.name, "NAME"); field.name_header = strlen(field.name);
+  strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
+  field.length = 43L; field.indexed = 0;
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   strcpy(field.id, "_FIELDS003"); field.id_header = strlen(field.id);
-  strcpy(field.name, "LENGTH"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
-
-  strcpy(field.id, "_FIELDS004"); field.id_header = strlen(field.id);
   strcpy(field.name, "INDEXED"); field.name_header = strlen(field.name);
   strcpy(field.type, "INT-8"); field.type_header = strlen(field.type);
   field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
+
+  strcpy(field.id, "_FIELDS004"); field.id_header = strlen(field.id);
+  strcpy(field.name, "LENGTH"); field.name_header = strlen(field.name);
+  strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
+  field.length = 0L; field.indexed = 0;
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   /* --------- _INDEXES fields ---------- */
 
@@ -141,13 +154,13 @@ void mdbCreateSystemTables(mdbDatabase *db)
   strcpy(field.name, "ID"); field.name_header = strlen(field.name);
   strcpy(field.type, "CHAR-8"); field.type_header = strlen(field.type);
   field.length = 58L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
 
   strcpy(field.id, "_INDEXES001"); field.id_header = strlen(field.id);
   strcpy(field.name, "B-TREE"); field.name_header = strlen(field.name);
   strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
   field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((byte*)(&field), db->fields);
+  mdbBtreeInsert((char*)(&field), db->fields);
 
 }
 
@@ -159,11 +172,9 @@ mdbDatabase* mdbCreateDatabase(const char* filename)
   mdbDatabase *db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
 
   /* creates the MastersDB header */
+  memset(&db->meta, 0, sizeof(mdbDatabaseMeta));
   db->meta.magic_number = MDB_MAGIC_NUMBER;
   db->meta.mdb_version = MDB_VERSION;
-  memset(db->meta.sys_tables, 0, 3*sizeof(uint32));
-  memset(db->meta.usr_tables, 0, 16*sizeof(uint32));
-  memset(db->meta.free_space, 0, 30*sizeof(mdbFreeEntry));
 
   /* writes the MastersDB header to a file */
   strcpy(buffer, filename);
@@ -172,7 +183,29 @@ mdbDatabase* mdbCreateDatabase(const char* filename)
   if ((db->file = fopen(&buffer[0], "wb")) != NULL)
   {
     mdbCreateSystemTables(db);
+
+    /* positions of the database system tables (B-tree + root node) */
+    db->meta.sys_tables[0] = sizeof(mdbDatabaseMeta);
+    db->meta.sys_tables[1] = db->meta.sys_tables[0] + sizeof(mdbBtreeMeta);
+    db->meta.sys_tables[2] = db->meta.sys_tables[1] + sizeof(mdbBtreeMeta);
+
+    db->tables->meta.root_position =
+        db->meta.sys_tables[2] + sizeof(mdbBtreeMeta);
+
+    db->fields->meta.root_position = db->tables->meta.root_position
+        + db->tables->nodeSize;
+
+    db->indexes->meta.root_position = db->fields->meta.root_position
+        + db->fields->nodeSize;
+
+    /* writes all meta data to the empty database */
     fwrite(&db->meta,sizeof(mdbDatabaseMeta),1,db->file);
+    fwrite(&db->tables->meta,sizeof(mdbBtreeMeta),1,db->file);
+    fwrite(&db->fields->meta,sizeof(mdbBtreeMeta),1,db->file);
+    fwrite(&db->indexes->meta,sizeof(mdbBtreeMeta),1,db->file);
+    fwrite(db->tables->root->data,db->tables->nodeSize,1,db->file);
+    fwrite(db->fields->root->data,db->fields->nodeSize,1,db->file);
+    fwrite(db->indexes->root->data,db->indexes->nodeSize,1,db->file);
     fclose(db->file);
   }
   else
