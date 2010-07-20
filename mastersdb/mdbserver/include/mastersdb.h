@@ -1,8 +1,8 @@
 
 /*
- * mdbserver.h
+ * mastersdb.h
  *
- * MastersDB Server main include file.
+ * MastersDB main include file.
  *
  * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
  *
@@ -23,6 +23,8 @@
  * ----------------
  * 31.03.2010
  *  Initial version of file.
+ * 20.07.2010
+ *  Renamed project to MastersDB. Server functionality will not be included.
  */
 
 #ifndef MDBSERVER_H_INCLUDED
