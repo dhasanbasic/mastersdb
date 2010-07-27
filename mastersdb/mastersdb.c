@@ -214,6 +214,6 @@ int main(int argc, char **argv)
 
   mdbDatabase *db;
 
-//  return mdbCreateDatabase(&db, "test.mrdb");
-  return mdbOpenDatabase(&db, "test.mrdb");
+  return mdbCreateDatabase(&db, "test.mrdb");
+//  return mdbOpenDatabase(&db, "test.mrdb");
 }

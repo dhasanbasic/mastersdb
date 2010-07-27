@@ -28,11 +28,9 @@ Finished
        INT-32   6            0       4         Standard C -> memcmp
        FLOAT    5            0       4         assembly   -> CompareFloat
        CHAR-8   6            4       N*1 + 4   Standard C -> strncmp
-       CHAR-16  7            4       N*2 + 4   Standard C -> CompareUnicode
        
     ** design and implement the missing type comparison functions:
       - mdbCompareFloat
-      - mdbCompareUnicode
 
   * design a file format for storing many B-trees
     # MastersDB format magic number & version              4 bytes

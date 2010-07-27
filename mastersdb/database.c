@@ -28,10 +28,33 @@
  *  Finished implementation of system tables creation utility function.
  * 20.07.2010
  *  Implemented remaining database functions.
+ * 25.07.2010
+ *  Moved data-type related code to here.
  */
 
 #include "database.h"
 #include "btree.h"
+
+/* TODO: implement the special comparison functions */
+
+int mdbCompareFloat(const void* v1, const void* v2, uint32 size)
+{
+  return 0;
+}
+
+void mdbInitializeTypes(mdbDatabase *db)
+{
+  /* initialize the data types array */
+  db->datatypes = (mdbDatatype*)calloc(MDB_TYPE_COUNT, sizeof(mdbDatatype));
+
+  db->datatypes[0] = (mdbDatatype){ "INT-8", 5,0, sizeof(byte),   &memcmp};
+  db->datatypes[1] = (mdbDatatype){ "INT-16",6,0, sizeof(uint16), &memcmp};
+  db->datatypes[2] = (mdbDatatype){ "INT-32",6,0, sizeof(uint32), &memcmp};
+  db->datatypes[3] = (mdbDatatype){ "FLOAT", 5,0, sizeof(float),
+    &mdbCompareFloat};
+  db->datatypes[4] = (mdbDatatype){ "STRING",6,4, sizeof(byte),
+    (CompareKeysPtr)&strncmp};
+}
 
 /* creates the system tables and writes them to a file */
 void mdbCreateSystemTables(mdbDatabase *db)
@@ -210,6 +233,8 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename)
     return MDB_DATABASE_NOFILE;
   }
 
+  mdbInitializeTypes(l_db);
+
   *db = l_db;
   return MDB_DATABASE_SUCCESS;
 }
@@ -272,6 +297,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     return MDB_DATABASE_NOFILE;
   }
 
+  mdbInitializeTypes(l_db);
   *db = l_db;
   return MDB_DATABASE_SUCCESS;
 }

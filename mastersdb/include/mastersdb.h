@@ -34,8 +34,6 @@
 
 #include "btree.h"
 
-#include "datatypes.h"
-
 #include "database.h"
 
 #endif
