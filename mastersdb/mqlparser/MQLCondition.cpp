@@ -26,28 +26,53 @@
 
 #include "MQLCondition.h"
 
+#include <cstdlib>
+
 MQLCondition::MQLCondition(uint8 left,
-    MQLConditionType comparison, void *right, MQLType rightType)
+    MQLConditionType cond, void* right, MQLType rightType)
 {
-  this->comparison = comparison;
   this->left = left;
-  this->right = right;
   this->rightType = rightType;
+  this->cond = cond;
+
+  switch (rightType) {
+    case COLUMN:
+      this->right = *((uint8*)right);
+      break;
+    case NUMBER:
+      this->iRight = atoi(((string*)right)->c_str());
+      break;
+    case STRING:
+      this->sRight = ((string*)right)->substr(1,((string*)right)->length() - 1);
+      break;
+    default:
+      break;
+  }
 }
 
-MQLConditionType MQLCondition::getComparison()
+MQLConditionType MQLCondition::getType()
 {
-  return this->comparison;
+  return this->cond;
 }
 
-uint8 MQLCondition::getLeftOperand()
+uint8 MQLCondition::getLeft()
 {
   return this->left;
 }
 
-void *MQLCondition::getRightOperand()
+string *MQLCondition::getRightString()
 {
-  return this->right;
+  return &sRight;
+}
+
+uint8 MQLCondition::getRight()
+{
+  return right;
+}
+
+uint32 MQLCondition::getRightInteger()
+{
+  return iRight;
 }
 
 MQLType MQLCondition::getRightType()

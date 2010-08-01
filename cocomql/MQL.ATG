@@ -1,0 +1,95 @@
+/*
+ * MQL.ATG
+ *
+ * MastersDB query language (MQL) grammar description for Coco/R
+ *
+ * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ *
+ * Revision history
+ * ----------------
+ * 22.07.2010
+ *  Initial version of file.
+ */
+
+COMPILER MQL
+
+/* ignores case */
+IGNORECASE
+
+/* defines the character sets */
+CHARACTERS
+  letter		  = 'A' .. 'Z' + 'a' .. 'z'.
+  digit			  = "0123456789".
+  char        = ANY - '"' - '\"' - '\r' - '\n'.
+
+/* defines the tokens */
+TOKENS
+  MQLIdentifier   = letter {letter | digit}.
+  MQLNumber	      = digit {digit}.
+  MQLString       = '"' {char} '"' | '\'' {char} '\''.
+
+/* defines the comments */
+COMMENTS FROM "/*" TO "*/" NESTED
+
+IGNORE '\t'
+
+/* defines the productions */
+PRODUCTIONS
+
+MQLType =
+  "INT-8"                         (. printf("TYPE: INT-8\n"); .)
+  | "INT-16"                      (. printf("TYPE: INT-16\n"); .)
+  | "INT-32"                      (. printf("TYPE: INT-32\n"); .)
+  | "FLOAT"                       (. printf("TYPE: FLOAT\n"); .)
+  | "CHAR"                        (. printf("TYPE: CHAR\n"); .)
+  | "UTF-8"                       (. printf("TYPE: UTF-8\n"); .).
+
+MQLAttribute =
+  MQLIdentifier MQLType '(' MQLNumber ')'.
+
+MQLAttributes =
+  MQLAttribute {',' MQLAttribute ["PRIMARY" "KEY"]}.
+
+MQLValue =
+  MQLNumber | MQLString.
+
+MQLValues =
+   MQLValue {',' MQLValue}.
+
+MQLColumn =
+  MQLIdentifier.
+
+MQLColumns =
+  MQLColumn {',' MQLColumn}.
+
+MQLStatement =
+  MQLCreate | MQLSelect | MQLInsert.
+  
+MQLCreate =
+  "CREATE" "TABLE" MQLIdentifier '(' MQLAttributes ')'.
+
+MQLSelect =
+  "SELECT" (
+  '*'
+  | MQLColumns)
+  "FROM" MQLIdentifier.
+
+MQLInsert =
+  "INSERT" "INTO" MQLIdentifier '(' MQLColumns ')' "VALUES" '(' MQLValues ')'.
+  
+MQL = MQLStatement ';'.
+
+END MQL.

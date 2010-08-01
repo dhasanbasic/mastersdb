@@ -29,30 +29,34 @@
 
 #include "../common.h"
 
+#include <string>
+
 using namespace std;
 
 enum MQLConditionType {
-  Less, LessOrEqual, Equal, GreaterOrEqual, Greater
+  LESS, LESS_OR_EQUAL, EQUAL, GREATER_OR_EQUAL, GREATER
 };
 
 enum MQLType {
-  Number, String, Column
+  NUMBER, STRING, COLUMN
 };
 
 class MQLCondition
 {
 private:
-  uint8 left;              // left operand
-  void* right;              // right operand
-  MQLConditionType comparison; // type of comparison
-  MQLType rightType;        // data type of the right argument
+  uint8 left;             // left operand
+  uint8 right;            // right operand (if column)
+  uint32 iRight;          // right operand (if number)
+  string sRight;          // right operand (if string)
+  MQLConditionType cond;  // type of comparison
+  MQLType rightType;      // data type of the right argument
 public:
-  MQLCondition(uint8 left,
-      MQLConditionType comparison, void* right, MQLType rightType);
-
-  MQLConditionType getComparison();
-  uint8 getLeftOperand();
-  void* getRightOperand();
+  MQLCondition(uint8 left,MQLConditionType cond,void* right,MQLType rightType);
+  MQLConditionType getType();
+  uint8 getLeft();
+  uint8 getRight();
+  uint32 getRightInteger();
+  string *getRightString();
   MQLType getRightType();
 };
 
