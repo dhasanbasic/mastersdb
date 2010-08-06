@@ -38,10 +38,12 @@
  * 15.07.2010
  *  Added root_position element to BtreeMeta structure.
  * 19.07.2010
- *  Updating the types to be uint32 or char* (before uint16 and byte*).
+ *  Updating the types to be uint32 or char* (before: uint16 and byte*).
  *  Added dummy implementations for ReadNode, WriteNode and DeleteNode.
  * 20.07.2010
  *  Added new utility macro for calculating a B-tree's node size.
+ * 06.08.2010
+ *  Added the BtreeTaverse function.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -50,9 +52,10 @@
 #include "../common.h"
 
 /* forward declarations of the B-tree structures */
-typedef struct mdbBtreeMeta mdbBtreeMeta;
-typedef struct mdbBtree     mdbBtree;
-typedef struct mdbBtreeNode mdbBtreeNode;
+typedef struct mdbBtreeMeta       mdbBtreeMeta;
+typedef struct mdbBtree           mdbBtree;
+typedef struct mdbBtreeNode       mdbBtreeNode;
+typedef struct mdbBtreeTraversal  mdbBtreeTraversal;
 
 /* B-tree node retrieval function */
 typedef mdbBtreeNode* (*BtreeLoadNodePtr)
@@ -98,6 +101,14 @@ struct mdbBtreeNode
   uint32 position;        /* position of node (data file)           */
 };
 
+/* B-tree traversal structure */
+struct mdbBtreeTraversal
+{
+  mdbBtreeNode* node;         /* current B-tree node              */
+  mdbBtreeTraversal* parent;  /* parent B-tree node (linked list) */
+  uint32 position;            /* current record position          */
+};
+
 /* B-tree allocation and initialization */
 int mdbBtreeCreateTree(mdbBtree** tree,
     const uint32 order,
@@ -121,6 +132,9 @@ int mdbBtreeDelete(const char* key, mdbBtree* t);
 mdbBtreeNode* mdbDummyReadNode(const uint32 position, mdbBtree* tree);
 uint32 mdbDummyWriteNode(mdbBtreeNode* node);
 void mdbDummyDeleteNode(mdbBtreeNode* node);
+
+/* B-tree traversal */
+int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
 
 /* General return values */
 #define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */

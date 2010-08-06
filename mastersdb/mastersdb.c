@@ -92,128 +92,133 @@ void PrintTypeTable(mdbDatatype *typetable) {
 
 int main(int argc, char **argv)
 {
-//  uint32 i = 0;
-//  char* buffer = (char*) malloc(128);
-//  char* searchResult = NULL;
-//  mdbBtreeNode* node;
-//  mdbBtree* t = NULL;
-//  mdbDatatype *types = NULL;//, *type = NULL;
-//
-//  mdbInitializeTypes(&types);
-//
-//  mdbBtreeCreateTree(&t, BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
-//      BTREE_KEY_POSITION);
-//
-//  char *insert = "ABCDEFGHIJKLMNOPQRSTUVXYZ\0";
-//  char *delete = "\0ZYXVUTSRQPONMLKJIHGFEDCB\0";
-//
-//  t->CompareKeys = &memcmp;
-//  t->ReadNode = &ReadNode;
-//  t->WriteNode = &WriteNode;
-//  t->DeleteNode = &DeleteNode;
-//
-//  nodeCount = 1;
-//  node_data = calloc(nodeCount + 1, t->nodeSize);
-//
-//  t->root = ReadNode(1, t);
-//  *(((mdbBtreeNode*) t->root)->is_leaf) = 1;
-//
-//  while (*insert != '\0')
-//  {
-//    mdbBtreeInsert(insert++, t);
-//  }
-//
-//  while (*delete != '\0')
-//  {
-//    mdbBtreeDelete(delete++, t);
-//  }
-//
-//  do
-//  {
-//    printf(
-//        "Enter command [" "(i)nsert," "(d)elete," "(s)earch," "(p)rint,"
-//        "(t)ype table," "(q)uit,(t)] >> ");
-//    fgets(buffer, 128, stdin);
-//    switch (buffer[0])
-//    {
-//      case 'i':
-//        printf("*** INSERT - enter record: ");
-//        fgets(buffer, 128, stdin);
-//        i = mdbBtreeInsert(&buffer[0], t);
-//        printf("*** RESULT: %s\n", (i == MDB_BTREE_INSERT_SUCCESS) ? "SUCCESS"
-//            : "COLLISION!");
-//        buffer[0] = 'i';
-//        break;
-//      case 'p':
-//        printf("*** PRINT\n");
-//        printf("--------------------------\n");
-//        for (i = 1; i <= nodeCount; i++)
-//        {
-//          node = ReadNode(i, t);
-//          PrintNode(node, t);
-//          free(node->data);
-//          free(node);
-//        }
-//        printf("--------------------------\n");
-//        break;
-//      case 'd':
-//        printf("*** DELETE - enter record: ");
-//        fgets(buffer, 128, stdin);
-//        i = mdbBtreeDelete(&buffer[0], t);
-//        switch (i)
-//        {
-//          case MDB_BTREE_DELETE_NOROOT:
-//            printf("*** RESULT: %s\n", "NO ROOT!");
-//            break;
-//          case MDB_BTREE_DELETE_EMPTYROOT:
-//            printf("*** RESULT: %s\n", "EMPTY ROOT!!");
-//            break;
-//          case MDB_BTREE_DELETE_NOTFOUND:
-//            printf("*** RESULT: %s\n", "RECORD NOT FOUND!");
-//            break;
-//          case MDB_BTREE_DELETE_SUCCESS:
-//            printf("*** RESULT: %s\n", "SUCCESS");
-//            break;
-//          default:
-//            printf("*** RESULT: UNKNOWN(%d)\n", i);
-//            break;
-//        }
-//        buffer[0] = 'd';
-//        break;
-//      case 's':
-//        printf("*** SEARCH - enter record: ");
-//        fgets(buffer, 128, stdin);
-//        i = mdbBtreeSearch(&buffer[0], &searchResult, t);
-//        if (searchResult != NULL)
-//        {
-//          printf("*** FOUND! (%c)\n", *searchResult);
-//          free(searchResult);
-//          searchResult = NULL;
-//        }
-//        else
-//        {
-//          printf("*** NOT FOUND!\n");
-//        }
-//        buffer[0] = 's';
-//        break;
-//      case 't':
-//        printf("*** TYPE TABLE\n");
-//        PrintTypeTable(types);
-//        break;
-//      case 'q':
-//        printf("*** QUIT\n");
-//        break;
-//      default:
-//        printf("*** Ignored!\n");
-//        break;
-//    }
-//  } while (buffer[0] != 'q');
-//
-//  free(t);
-//  return 0;
+  uint32 i = 0;
+  char* buffer = (char*) malloc(128);
+  char* searchResult = NULL;
+  mdbBtreeNode* node;
+  mdbBtree* t = NULL;
+  mdbBtreeTraversal *trv = (mdbBtreeTraversal*)malloc(sizeof(mdbBtreeTraversal));
 
-  mdbDatabase *db;
+  mdbBtreeCreateTree(&t, BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
+      BTREE_KEY_POSITION);
 
-  return mdbCreateDatabase(&db, "test.mrdb");
+  char *insert = "ABCDEFGHIJKLMNOPQRSTUVXYZ\0";
+  char *delete = "\0ZYXVUTSRQPONMLKJIHGFEDCB\0";
+
+  t->CompareKeys = &memcmp;
+  t->ReadNode = &ReadNode;
+  t->WriteNode = &WriteNode;
+  t->DeleteNode = &DeleteNode;
+
+  nodeCount = 1;
+  node_data = calloc(nodeCount + 1, t->nodeSize);
+
+  t->root = ReadNode(1, t);
+  *(((mdbBtreeNode*) t->root)->is_leaf) = 1;
+
+  while (*insert != '\0')
+  {
+    mdbBtreeInsert(insert++, t);
+  }
+
+  while (*delete != '\0')
+  {
+    mdbBtreeDelete(delete++, t);
+  }
+
+  do
+  {
+    printf(
+        "Enter command [" "(i)nsert," "(d)elete," "(s)earch," "(p)rint,"
+        "(t)raverse," "(q)uit] >> ");
+    fgets(buffer, 128, stdin);
+    switch (buffer[0])
+    {
+      case 'i':
+        printf("*** INSERT - enter record: ");
+        fgets(buffer, 128, stdin);
+        i = mdbBtreeInsert(&buffer[0], t);
+        printf("*** RESULT: %s\n", (i == MDB_BTREE_INSERT_SUCCESS) ? "SUCCESS"
+            : "COLLISION!");
+        buffer[0] = 'i';
+        break;
+      case 'p':
+        printf("*** PRINT\n");
+        printf("--------------------------\n");
+        for (i = 1; i <= nodeCount; i++)
+        {
+          node = ReadNode(i, t);
+          PrintNode(node, t);
+          free(node->data);
+          free(node);
+        }
+        printf("--------------------------\n");
+        break;
+      case 'd':
+        printf("*** DELETE - enter record: ");
+        fgets(buffer, 128, stdin);
+        i = mdbBtreeDelete(&buffer[0], t);
+        switch (i)
+        {
+          case MDB_BTREE_DELETE_NOROOT:
+            printf("*** RESULT: %s\n", "NO ROOT!");
+            break;
+          case MDB_BTREE_DELETE_EMPTYROOT:
+            printf("*** RESULT: %s\n", "EMPTY ROOT!!");
+            break;
+          case MDB_BTREE_DELETE_NOTFOUND:
+            printf("*** RESULT: %s\n", "RECORD NOT FOUND!");
+            break;
+          case MDB_BTREE_DELETE_SUCCESS:
+            printf("*** RESULT: %s\n", "SUCCESS");
+            break;
+          default:
+            printf("*** RESULT: UNKNOWN(%d)\n", i);
+            break;
+        }
+        buffer[0] = 'd';
+        break;
+      case 's':
+        printf("*** SEARCH - enter record: ");
+        fgets(buffer, 128, stdin);
+        i = mdbBtreeSearch(&buffer[0], &searchResult, t);
+        if (searchResult != NULL)
+        {
+          printf("*** FOUND! (%c)\n", *searchResult);
+          free(searchResult);
+          searchResult = NULL;
+        }
+        else
+        {
+          printf("*** NOT FOUND!\n");
+        }
+        buffer[0] = 's';
+        break;
+      case 't':
+        printf("*** TRAVERSE\n");
+        trv->node = t->root;
+        trv->parent = NULL;
+        trv->position = 0;
+        while (mdbBtreeTraverse(&trv, &buffer[0]) != MDB_BTREE_NOTFOUND)
+        {
+          printf("%c\n", buffer[0]);
+        }
+        buffer[0] = 't';
+        break;
+      case 'q':
+        printf("*** QUIT\n");
+        break;
+      default:
+        printf("*** Ignored!\n");
+        break;
+    }
+  } while (buffer[0] != 'q');
+
+  free(t);
+  return 0;
+
+//  mdbDatabase *db;
+//
+//  return mdbCreateDatabase(&db, "test.mrdb");
 //  return mdbOpenDatabase(&db, "test.mrdb");
 }

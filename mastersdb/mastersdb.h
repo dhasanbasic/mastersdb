@@ -32,8 +32,8 @@
 
 #include "common.h"
 
-#include "btree.h"
+#include "btree/btree.h"
 
-#include "database.h"
+#include "database/database.h"
 
 #endif

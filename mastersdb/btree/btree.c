@@ -44,7 +44,9 @@
  * 27.03.2010
  *  Updated code to reflect changes (double pointers, integer return values).
  * 19.07.2010
- *  Updating the types to be uint32 or char* (before uint16 and byte*).
+ *  Updating the types to be uint32 or char* (before: uint16 and byte*).
+ * 06.08.2010
+ *  Added the BtreeTaverse function.
  */
 
 #include "btree.h"
@@ -645,5 +647,60 @@ uint32 mdbDummyWriteNode(mdbBtreeNode* node)
 
 void mdbDummyDeleteNode(mdbBtreeNode* node)
 {
+
 }
 
+int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
+{
+  mdbBtreeTraversal *tmp;
+  mdbBtree *tree = (*t)->node->T;
+
+  /* find left-most leaf node */
+  while (BT_INTERNAL((*t)->node))
+  {
+    tmp = (mdbBtreeTraversal*)malloc(sizeof(mdbBtreeTraversal));
+    tmp->parent = *t;
+    tmp->position = 0;
+    tmp->node = tree->ReadNode((*t)->node->children[(*t)->position], tree);
+    *t = tmp;
+  }
+
+  /* if there are still records to be returned from current leaf... */
+  if ((*t)->position < *(*t)->node->record_count)
+  {
+    memcpy(record,BT_RECORD((*t)->node,(*t)->position),BT_RECSIZE((*t)->node));
+    (*t)->position++;
+  }
+  /* else, go back to parent and return the parent record */
+  else
+  {
+    do
+    {
+      if ((*t)->parent == NULL)
+      {
+        /* no more records */
+        return MDB_BTREE_NOTFOUND;
+      }
+      tmp = (*t)->parent;
+      free((*t)->node->data);
+      free(*t);
+      *t = tmp;
+    }
+    while (tmp->position == *tmp->node->record_count);
+
+    memcpy(record,BT_RECORD((*t)->node,(*t)->position),BT_RECSIZE((*t)->node));
+    (*t)->position++;
+
+    /* load the right child */
+    if (BT_INTERNAL((*t)->node))
+    {
+      tmp = (mdbBtreeTraversal*)malloc(sizeof(mdbBtreeTraversal));
+      tmp->parent = *t;
+      tmp->position = 0;
+      tmp->node = tree->ReadNode((*t)->node->children[(*t)->position], tree);
+      *t = tmp;
+    }
+  }
+
+  return MDB_BTREE_SUCCESS;
+}
