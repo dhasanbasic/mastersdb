@@ -24,8 +24,14 @@
  *  Initial version of file.
  */
 
+#include "MQLTypes.h"
+
+using namespace MDB;
+
 COMPILER MQL
 
+  MQLStatement* stmt;
+  
 /* ignores case */
 IGNORECASE
 
@@ -33,13 +39,14 @@ IGNORECASE
 CHARACTERS
   letter		  = 'A' .. 'Z' + 'a' .. 'z'.
   digit			  = "0123456789".
-  char        = ANY - '"' - '\"' - '\r' - '\n'.
+  char            = ANY - '"' - '\"' - '\r' - '\n'.
 
 /* defines the tokens */
 TOKENS
   MQLIdentifier   = letter {letter | digit}.
   MQLNumber	      = digit {digit}.
   MQLString       = '"' {char} '"' | '\'' {char} '\''.
+  MQLOperator     = '=' | '<' | '>' | "<=" | ">=".
 
 /* defines the comments */
 COMMENTS FROM "/*" TO "*/" NESTED
@@ -61,7 +68,7 @@ MQLAttribute =
   MQLIdentifier MQLType '(' MQLNumber ')'.
 
 MQLAttributes =
-  MQLAttribute {',' MQLAttribute ["PRIMARY" "KEY"]}.
+  MQLAttribute "PRIMARY" "KEY" {',' MQLAttribute }.
 
 MQLValue =
   MQLNumber | MQLString.
@@ -69,27 +76,36 @@ MQLValue =
 MQLValues =
    MQLValue {',' MQLValue}.
 
-MQLColumn =
-  MQLIdentifier.
+MQLColumn<int &id> =
+  MQLIdentifier       (. id = stmt->addColumn(t->val); .).
 
-MQLColumns =
-  MQLColumn {',' MQLColumn}.
+MQLColumns =          (. int id; .)
+  MQLColumn<id> {',' MQLColumn<id>}.
 
-MQLStatement =
-  MQLCreate | MQLSelect | MQLInsert.
-  
+MQLExpression =         (. MQLCondition *c = new MQLCondition(); .)
+                                  (. int id;                     .)
+	MQLColumn<id>                 (. c->setLeftOperand(id);      .)
+	MQLOperator                   (. c->setOperation(t->val);    .)
+	(MQLColumn<id>                (. c->setRightOperand(id);     .)
+	| MQLNumber | MQLString)      (. c->setRightOperand(t->val); .)
+	                              (. stmt->addCondition(c);      .).
+
+MQLExpressions =
+  MQLExpression {',' MQLExpression }.
+
 MQLCreate =
   "CREATE" "TABLE" MQLIdentifier '(' MQLAttributes ')'.
 
 MQLSelect =
-  "SELECT" (
-  '*'
+  "SELECT"                     (. stmt = new MQLStatement(SELECT); .)
+  ('*'                         (. stmt->addColumn(t->val);         .)
   | MQLColumns)
-  "FROM" MQLIdentifier.
+  "FROM" MQLIdentifier         (. stmt->addTable(t->val);          .)
+  "WHERE" MQLExpressions.
 
 MQLInsert =
   "INSERT" "INTO" MQLIdentifier '(' MQLColumns ')' "VALUES" '(' MQLValues ')'.
   
-MQL = MQLStatement ';'.
+MQL = (MQLCreate | MQLSelect | MQLInsert) ';'.
 
 END MQL.

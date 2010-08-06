@@ -36,8 +36,8 @@
 #ifndef DATABASE_H_INCLUDED
 #define DATABASE_H_INCLUDED
 
-#include "common.h"
-#include "btree.h"
+#include "../common.h"
+#include "../btree/btree.h"
 
 /* forward declarations of the database structures */
 typedef struct mdbFreeEntry mdbFreeEntry;

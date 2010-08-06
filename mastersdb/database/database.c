@@ -33,7 +33,6 @@
  */
 
 #include "database.h"
-#include "btree.h"
 
 /* TODO: implement the special comparison functions */
 
