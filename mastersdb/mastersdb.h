@@ -25,15 +25,19 @@
  *  Initial version of file.
  * 20.07.2010
  *  Renamed project to MastersDB. Server functionality will not be included.
+ * 07.08.2010
+ *  Added extern "C" definitions to mix C and C++ code.
  */
 
 #ifndef MDBSERVER_H_INCLUDED
 #define MDBSERVER_H_INCLUDED
 
-#include "common.h"
+extern "C" {
+  #include "common.h"
+  #include "btree/btree.h"
+  #include "database/database.h"
+}
 
-#include "btree/btree.h"
-
-#include "database/database.h"
+#include "parser/MQLParser.h"
 
 #endif

@@ -30,6 +30,8 @@
  *  Implemented remaining database functions.
  * 25.07.2010
  *  Moved data-type related code to here.
+ * 07.08.2010
+ *  Fixed a bug in database initialization.
  */
 
 #include "database.h"
@@ -53,6 +55,11 @@ void mdbInitializeTypes(mdbDatabase *db)
     &mdbCompareFloat};
   db->datatypes[4] = (mdbDatatype){ "STRING",6,4, sizeof(byte),
     (CompareKeysPtr)&strncmp};
+
+  /* the system table B-tree have all primary keys of type STRING */
+  db->tables->CompareKeys = db->datatypes[4].compare;
+  db->fields->CompareKeys = db->datatypes[4].compare;
+  db->indexes->CompareKeys = db->datatypes[4].compare;
 }
 
 /* creates the system tables and writes them to a file */

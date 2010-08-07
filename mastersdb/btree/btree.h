@@ -120,7 +120,7 @@ int mdbBtreeCreateTree(mdbBtree** tree,
 int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
 
 /* B-tree search */
-int mdbBtreeSearch(const char* key, char** record, mdbBtree* t);
+int mdbBtreeSearch(const char* key, char* record, mdbBtree* t);
 
 /* B-tree insertion */
 int mdbBtreeInsert(const char* record, mdbBtree* t);

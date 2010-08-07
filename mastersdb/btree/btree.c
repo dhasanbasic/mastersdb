@@ -113,7 +113,7 @@ int mdbBtreeAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-int mdbBtreeSearchRecursive(const char* key, char** record, mdbBtreeNode* node)
+int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
 {
   mdbBtreeNode* next = NULL;
   int result = 0;
@@ -129,8 +129,7 @@ int mdbBtreeSearchRecursive(const char* key, char** record, mdbBtreeNode* node)
   {
     if (BT_KEYCMP(key, == ,BT_KEY(node,i),node))
     {
-      *record = (char*) malloc(BT_RECSIZE(node));
-      memcpy(*record, BT_RECORD(node,i), BT_RECSIZE(node));
+      memcpy(record, BT_RECORD(node,i), BT_RECSIZE(node));
       return MDB_BTREE_SEARCH_FOUND;
     }
   }
@@ -138,7 +137,6 @@ int mdbBtreeSearchRecursive(const char* key, char** record, mdbBtreeNode* node)
   /* if node is a leaf, search for the key and return NULL if not found */
   if (BT_LEAF(node))
   {
-    *record = NULL;
     result = MDB_BTREE_SEARCH_NOTFOUND;
   }
   /* if node is an internal node, search for the key or recurse to subtree */
@@ -156,7 +154,7 @@ int mdbBtreeSearchRecursive(const char* key, char** record, mdbBtreeNode* node)
 /*
  * B-tree search function
  */
-int mdbBtreeSearch(const char* key, char** record, mdbBtree* t)
+int mdbBtreeSearch(const char* key, char* record, mdbBtree* t)
 {
   if (t->root != NULL)
   {
