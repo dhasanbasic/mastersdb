@@ -43,7 +43,9 @@
  * 20.07.2010
  *  Added new utility macro for calculating a B-tree's node size.
  * 06.08.2010
- *  Added the BtreeTaverse function.
+ *  Added the BtreeTraverse function.
+ * 07.08.2010
+ *  Removed "key_size" from mdbBtreeMeta.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -56,6 +58,7 @@ typedef struct mdbBtreeMeta       mdbBtreeMeta;
 typedef struct mdbBtree           mdbBtree;
 typedef struct mdbBtreeNode       mdbBtreeNode;
 typedef struct mdbBtreeTraversal  mdbBtreeTraversal;
+typedef struct mdbDatatype        mdbDatatype;
 
 /* B-tree node retrieval function */
 typedef mdbBtreeNode* (*BtreeLoadNodePtr)
@@ -71,7 +74,6 @@ typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
 struct mdbBtreeMeta
 {
   uint32 record_size;     /* size of a record                       */
-  uint32 key_size;        /* size of the primary key                */
   uint32 key_position;    /* position of the primary key            */
   uint32 root_position;   /* position of the root node in the file  */
   uint32 order;           /* B-tree order (minimal children count)  */
@@ -80,13 +82,13 @@ struct mdbBtreeMeta
 /* B-tree structure */
 struct mdbBtree
 {
-  mdbBtreeMeta meta;              /* node meta-data                          */
-  uint32 nodeSize;                /* size of a node                          */
-  mdbBtreeNode* root;             /* pointer to root node (preloaded)        */
-  CompareKeysPtr CompareKeys;     /* pointer to key comparison function      */
-  BtreeLoadNodePtr ReadNode;      /* node retrieval implementation           */
-  BtreeWriteNodePtr WriteNode;    /* node write-out implementation           */
-  BtreeDeleteNodePtr DeleteNode;  /* node deletion implementation            */
+  mdbBtreeMeta meta;              /* node meta-data                        */
+  uint32 nodeSize;                /* size of a node                        */
+  mdbBtreeNode* root;             /* pointer to root node (preloaded)      */
+  const mdbDatatype *key_type;    /* Data type of the B-tree key           */
+  BtreeLoadNodePtr ReadNode;      /* node retrieval implementation         */
+  BtreeWriteNodePtr WriteNode;    /* node write-out implementation         */
+  BtreeDeleteNodePtr DeleteNode;  /* node deletion implementation          */
 };
 
 /* B-tree node structure */
@@ -109,11 +111,19 @@ struct mdbBtreeTraversal
   uint32 position;            /* current record position          */
 };
 
+/* MastersDB data type */
+struct mdbDatatype {
+  char name[8];           /* upper-case name, including null char.          */
+  byte length;            /* length of the name                             */
+  byte header;            /* length of header information (0 if not used)   */
+  byte size;              /* size of the value, 0 for varying-size types    */
+  CompareKeysPtr compare; /* pointer to comparison function                 */
+};
+
 /* B-tree allocation and initialization */
 int mdbBtreeCreateTree(mdbBtree** tree,
     const uint32 order,
     const uint32 record_size,
-    const uint32 key_size,
     const uint32 key_position);
 
 /* B-tree node allocation function */
@@ -135,6 +145,9 @@ void mdbDummyDeleteNode(mdbBtreeNode* node);
 
 /* B-tree traversal */
 int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
+
+/* B-tree key comparison based on the data type of the key */
+int mdbBtreeCmp(const char* k1, const char* k2, const mdbBtree *tree);
 
 /* General return values */
 #define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */
@@ -179,15 +192,14 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
 #define BT_COUNT(node)      (*node->record_count)
 
 /* B-tree node meta-data shortcuts */
-#define BT_KEYSIZE(node)    node->T->meta.key_size
 #define BT_KEYPOS(node)     node->T->meta.key_position
 #define BT_RECSIZE(node)    node->T->meta.record_size
 #define BT_ORDER(node)      node->T->meta.order
 #define BT_ROOTPOS(node)    node->T->meta.root_position
 
 /* Tests whether the left key is greater, less or equal than the right one */
-#define BT_KEYCMP(k1,op,k2,node) \
-  (node->T->CompareKeys((k1),(k2),BT_KEYSIZE(node)) op 0)
+#define BT_KEYCMP(k1,op,k2,node,size) \
+  (node->T->CompareKeys((k1),(k2),size) op 0)
 
 /* Copies N records between two nodes */
 #define BT_COPYRECORDS(dest,D,src,S,N) \

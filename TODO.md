@@ -52,7 +52,7 @@ Finished
       -----------------------------------------------------------------
       FIELD    | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Name  | CHAR-8 | 55     | 59   | Name of the table
+      (#)Name  | STRING | 55     | 59   | Name of the table
       Fields   | INT-8  | N/A    | 1    | Number of fields
       B-tree   | INT-32 | N/A    | 4    | Pointer to B-tree descriptor
       -----------------------------------------------------------------
@@ -62,9 +62,9 @@ Finished
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | CHAR-8 | 60     | 64   | Name of the field
-      Type           | CHAR-8 | 8      | 12   | Name of the data type
-      Name           | CHAR-8 | 43     | 47   | Name of the field
+      (#)Identifier  | STRING | 60     | 64   | Name of the field
+      Type           | STRING | 8      | 12   | Name of the data type
+      Name           | STRING | 43     | 47   | Name of the field
       Indexed        | INT-8  | N/A    | 1    | Field is indexed
       Length         | INT-32 | N/A    | 4    | Maximum data length
       -----------------------------------------------------------------
@@ -74,7 +74,7 @@ Finished
       -----------------------------------------------------------------
       FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | CHAR-8 | 60     | 64   | Name of the field
+      (#)Identifier  | STRING | 60     | 64   | Name of the field
       B+ tree        | INT-32 | N/A    | 4    | Pointer to B+ tree
       -----------------------------------------------------------------
       - Record size: 68 bytes

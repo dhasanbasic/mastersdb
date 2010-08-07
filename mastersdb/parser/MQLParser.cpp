@@ -92,7 +92,7 @@ void MQLParser::mapMetadata()
   string *strField;
 
   int iField;
-  char id[60];
+  char id[64];
 
   clearMetadata();
 
@@ -115,7 +115,8 @@ void MQLParser::mapMetadata()
     while (iField < pTable->num_fields)
     {
       // find the column meta data
-      sprintf(id, "%s%03u", strTable->c_str(), iField);
+      sprintf(id, "....%s%03u", strTable->c_str(), iField);
+      *((uint32*)id) = strTable->length() + 3;
       mdbBtreeSearch(id, (char*)pField, db->fields);
 
       // map into the columns map
@@ -130,6 +131,8 @@ void MQLParser::mapMetadata()
     }
 
   }
+
+  clearMetadata();
 
   delete pTable;
   delete pField;

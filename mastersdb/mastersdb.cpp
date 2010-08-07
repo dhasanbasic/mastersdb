@@ -6,8 +6,7 @@
 using namespace MDB;
 
 //#define BTREE_T             5
-//#define BTREE_RECORD_SIZE   1
-//#define BTREE_KEY_SIZE      1
+//#define BTREE_RECORD_SIZE   5
 //#define BTREE_KEY_POSITION  0
 //
 //byte* node_data = NULL;
@@ -70,7 +69,7 @@ using namespace MDB;
 //  {
 //    if (i < *node->record_count)
 //    {
-//      printf("%c ", node->records[i]);
+//      printf("%c ", node->records[i * BTREE_RECORD_SIZE + 4]);
 //    }
 //    else
 //    {
@@ -99,15 +98,17 @@ int main(int argc, char **argv)
 //  char searchResult[5];
 //  mdbBtreeNode* node;
 //  mdbBtree* t = NULL;
+//  mdbDatatype mdbString = { "STRING",6,4, sizeof(byte),
+//    (CompareKeysPtr)&strncmp};
+//
 //  mdbBtreeTraversal *trv = (mdbBtreeTraversal*)malloc(sizeof(mdbBtreeTraversal));
 //
-//  mdbBtreeCreateTree(&t, BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_SIZE,
-//      BTREE_KEY_POSITION);
+//  mdbBtreeCreateTree(&t, BTREE_T, BTREE_RECORD_SIZE, BTREE_KEY_POSITION);
 //
 //  const char *ins = "ABCDEFGHIJKLMNOPQRSTUVXYZ\0";
 //  const char *del = "\0ZYXVUTSRQPONMLKJIHGFEDCB\0";
 //
-//  t->CompareKeys = &memcmp;
+//  t->key_type = &mdbString;
 //  t->ReadNode = &ReadNode;
 //  t->WriteNode = &WriteNode;
 //  t->DeleteNode = &DeleteNode;
@@ -120,12 +121,18 @@ int main(int argc, char **argv)
 //
 //  while (*ins != '\0')
 //  {
-//    mdbBtreeInsert(ins++, t);
+//    *((uint32*)&searchResult[0]) = 1;
+//    searchResult[4] = *ins;
+//    ins++;
+//    mdbBtreeInsert(searchResult, t);
 //  }
 //
 //  while (*del != '\0')
 //  {
-//    mdbBtreeDelete(del++, t);
+//    *((uint32*)&searchResult[0]) = 1;
+//    searchResult[4] = *del;
+//    del++;
+//    mdbBtreeDelete(searchResult, t);
 //  }
 //
 //  do
@@ -138,7 +145,8 @@ int main(int argc, char **argv)
 //    {
 //      case 'i':
 //        printf("*** INSERT - enter record: ");
-//        fgets(buffer, 128, stdin);
+//        fgets(buffer + 4, 128, stdin);
+//        *((uint32*)buffer) = 1;
 //        i = mdbBtreeInsert(&buffer[0], t);
 //        printf("*** RESULT: %s\n", (i == MDB_BTREE_INSERT_SUCCESS) ? "SUCCESS"
 //            : "COLLISION!");
@@ -158,7 +166,8 @@ int main(int argc, char **argv)
 //        break;
 //      case 'd':
 //        printf("*** DELETE - enter record: ");
-//        fgets(buffer, 128, stdin);
+//        fgets(buffer + 4, 128, stdin);
+//        *((uint32*)buffer) = 1;
 //        i = mdbBtreeDelete(&buffer[0], t);
 //        switch (i)
 //        {
@@ -182,12 +191,12 @@ int main(int argc, char **argv)
 //        break;
 //      case 's':
 //        printf("*** SEARCH - enter record: ");
-//        fgets(buffer, 128, stdin);
+//        fgets(buffer + 4, 128, stdin);
+//        *((uint32*)buffer) = 1;
 //        i = mdbBtreeSearch(&buffer[0], searchResult, t);
 //        if (searchResult != NULL)
 //        {
-//          printf("*** FOUND! (%c)\n", searchResult);
-//          searchResult = NULL;
+//          printf("*** FOUND! (%s)\n", searchResult);
 //        }
 //        else
 //        {
@@ -223,10 +232,9 @@ int main(int argc, char **argv)
 //  return mdbCreateDatabase(&db, "test.mrdb");
 
   int result = mdbOpenDatabase(&db, "test.mrdb");
-
   MQLParser *p = new MQLParser(db);
-
   p->mapMetadata();
-
   return result;
+
+  return 0;
 }

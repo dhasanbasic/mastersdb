@@ -12,7 +12,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILconst mdbDatatype *key_typeITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -46,7 +46,9 @@
  * 19.07.2010
  *  Updating the types to be uint32 or char* (before: uint16 and byte*).
  * 06.08.2010
- *  Added the BtreeTaverse function.
+ *  Added the BtreeTraverse function.
+ * 07.08.2010
+ *  Removed "key_size" from mdbBtreeMeta.
  */
 
 #include "btree.h"
@@ -57,7 +59,6 @@
 int mdbBtreeCreateTree(mdbBtree** tree,
     const uint32 order,
     const uint32 record_size,
-    const uint32 key_size,
     const uint32 key_position)
 {
   /* allocates a B-tree structure */
@@ -66,14 +67,10 @@ int mdbBtreeCreateTree(mdbBtree** tree,
   /* initializes the B-tree structure */
   (*tree)->meta.order = order;
   (*tree)->meta.record_size = record_size;
-  (*tree)->meta.key_size = key_size;
   (*tree)->meta.key_position = key_position;
   (*tree)->meta.root_position = 0L;
 
   BT_CALC_NODESIZE(*tree);
-
-  /* default comparison function */
-  (*tree)->CompareKeys = &memcmp;
 
   return MDB_BTREE_SUCCESS;
 }
@@ -119,7 +116,7 @@ int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
   int result = 0;
   uint32 i = 0;
 
-  while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i),node))
+  while (i < BT_COUNT(node) && (mdbBtreeCmp(key,BT_KEY(node,i),node->T) > 0))
   {
     i++;
   }
@@ -127,7 +124,7 @@ int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
   /* key/record found? */
   if (i < BT_COUNT(node))
   {
-    if (BT_KEYCMP(key, == ,BT_KEY(node,i),node))
+    if (mdbBtreeCmp(key,BT_KEY(node,i),node->T) == 0)
     {
       memcpy(record, BT_RECORD(node,i), BT_RECSIZE(node));
       return MDB_BTREE_SEARCH_FOUND;
@@ -220,7 +217,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
   int result = 0;
 
   while (i < BT_COUNT(node) &&
-      BT_KEYCMP(record + BT_KEYPOS(node), > ,BT_KEY(node,i), node))
+      (mdbBtreeCmp(record + BT_KEYPOS(node),BT_KEY(node,i),node->T) > 0))
   {
     i++;
   }
@@ -228,7 +225,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
   /* key already exists? */
   if (i < BT_COUNT(node))
   {
-    if (BT_KEYCMP(record + BT_KEYPOS(node), == ,BT_KEY(node,i), node))
+    if (mdbBtreeCmp(record + BT_KEYPOS(node),BT_KEY(node,i),node->T) == 0)
     {
       return MDB_BTREE_INSERT_COLLISION;
     }
@@ -261,13 +258,13 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
       /* the current key changed and the current subtree maybe smaller than
        * then the record's key, so determine the direction of the recursion
        * (left or right) */
-      if (BT_KEYCMP(record + BT_KEYPOS(node), > ,BT_KEY(node,i), node))
+      if (mdbBtreeCmp(record + BT_KEYPOS(node),BT_KEY(node,i),node->T) > 0)
       {
         free(next->data);
         free(next);
         next = node->T->ReadNode(node->children[i + 1], node->T);
       }
-      else if (BT_KEYCMP(record + BT_KEYPOS(node), == ,BT_KEY(node,i), node))
+      else if (mdbBtreeCmp(record+BT_KEYPOS(node),BT_KEY(node,i),node->T) == 0)
       {
         free(next->data);
         free(next);
@@ -377,13 +374,13 @@ int mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
   uint32 i = 0;
   int result = 0;
 
-  while (i < BT_COUNT(node) && BT_KEYCMP(key, > ,BT_KEY(node,i), node))
+  while (i < BT_COUNT(node) && (mdbBtreeCmp(key,BT_KEY(node,i),node->T) > 0))
   {
     i++;
   }
 
   /* key found? */
-  if (i < BT_COUNT(node) && BT_KEYCMP(key, == ,BT_KEY(node,i), node))
+  if (i < BT_COUNT(node) && (mdbBtreeCmp(key,BT_KEY(node,i),node->T) == 0))
   {
     /* if current node is a leaf, simply remove the record */
     if (BT_LEAF(node))
@@ -701,4 +698,18 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
   }
 
   return MDB_BTREE_SUCCESS;
+}
+
+int mdbBtreeCmp(const char* k1, const char* k2, const mdbBtree *tree)
+{
+  uint32 size1, size2;
+  if (tree->key_type->header > 0)
+  {
+    size1 = *((uint32*)k1);
+    size2 = *((uint32*)k2);
+    if (size2 < size1) size1 = size2;
+    return tree->key_type->compare(
+        k1 + tree->key_type->header, k2 + tree->key_type->header, size1);
+  }
+  return tree->key_type->compare(k1, k2, tree->key_type->size);
 }

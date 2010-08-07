@@ -31,6 +31,8 @@
  *  Added prototypes for the remaining database functions.
  * 25.07.2010
  *  Moved data-type related code to here.
+ * 07.08.2010
+ *  Moved mdbDatatype structure to btree.h.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -46,7 +48,6 @@ typedef struct mdbDatabase mdbDatabase;
 typedef struct mdbTable mdbTable;
 typedef struct mdbField mdbField;
 typedef struct mdbIndex mdbIndex;
-typedef struct mdbDatatype mdbDatatype;
 
 /* Creates an empty MastersDB database */
 int mdbCreateDatabase(mdbDatabase **db, const char *filename);
@@ -132,15 +133,5 @@ struct mdbIndex
   char id[60];                  /* Index identifier (field id)      */
   uint32 btree;                 /* Pointer to B+-tree in the file   */
 };
-
-/* MastersDB datatype */
-struct mdbDatatype {
-  char name[8];           /* upper-case name, including null char.          */
-  byte length;            /* length of the name                             */
-  byte header;            /* length of header information (0 if not used)   */
-  byte size;              /* size of the value, 0 for varying-size types    */
-  CompareKeysPtr compare; /* pointer to comparison function                 */
-};
-
 
 #endif
