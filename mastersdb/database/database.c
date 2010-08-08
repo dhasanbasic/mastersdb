@@ -51,13 +51,14 @@ int mdbCompareFloat(const void* v1, const void* v2, uint32 size)
   return 0;
 }
 
-void mdbAllocateTable(mdbTable **table)
+int mdbAllocateTable(mdbTable **table)
 {
   *table = (mdbTable*)malloc(sizeof(mdbTable));
 
   (*table)->name = (*table)->data;
   (*table)->num_columns = (byte*)((*table)->data + 59);
   (*table)->position = (uint32*)((*table)->data + 60);
+  return MDB_DATABASE_SUCCESS;
 }
 
 int mdbFreeTable(mdbTable *t)

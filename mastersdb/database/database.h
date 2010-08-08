@@ -40,6 +40,7 @@
  * 09.08.2010
  *  Added mdbLoadTable function.
  *  Added mdbFreeTable function.
+ *  Made mdbAllocateTable publicly visible.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -64,6 +65,9 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename);
 
 /* Loads an existing MastersDB database, including header check */
 int mdbCloseDatabase(mdbDatabase *db);
+
+/* Allocates a new mdbTable structure and initializes the internal pointers */
+int mdbAllocateTable(mdbTable **table);
 
 /* Loads the meta data, B-tree descriptor and root node of a table */
 int mdbFreeTable(mdbTable *t);
