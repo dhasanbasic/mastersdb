@@ -33,6 +33,9 @@
  *  Moved data-type related code to here.
  * 07.08.2010
  *  Moved mdbDatatype structure to btree.h.
+ * 08.08.2010
+ *  Restructured the database.
+ *  Added the mdbDatabaseCreateTable function.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -46,7 +49,7 @@ typedef struct mdbFreeEntry mdbFreeEntry;
 typedef struct mdbDatabaseMeta mdbDatabaseMeta;
 typedef struct mdbDatabase mdbDatabase;
 typedef struct mdbTable mdbTable;
-typedef struct mdbField mdbField;
+typedef struct mdbColumn mdbColumn;
 typedef struct mdbIndex mdbIndex;
 
 /* Creates an empty MastersDB database */
@@ -56,7 +59,10 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename);
 int mdbOpenDatabase(mdbDatabase **db, const char *filename);
 
 /* Loads an existing MastersDB database, including header check */
-int mdbCloseDatabase(const mdbDatabase *db);
+int mdbCloseDatabase(mdbDatabase *db);
+
+/* Creates a table and stores its B-tree and root node into the database */
+int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree);
 
 /* General return values */
 #define MDB_DATABASE_SUCCESS          1  /* Database creation succeeded      */
@@ -65,13 +71,8 @@ int mdbCloseDatabase(const mdbDatabase *db);
 
 /* System tables B-tree parameters */
 #define MDB_TABLES_ORDER          964
-#define MDB_TABLES_KEY_SIZE       59
-
-#define MDB_FIELDS_ORDER          7944
-#define MDB_FIELDS_KEY_SIZE       64
-
+#define MDB_COLUMNS_ORDER         7944
 #define MDB_INDEXES_ORDER         7282
-#define MDB_INDEXES_KEY_SIZE      64
 
 /* Data-type count */
 #define MDB_TYPE_COUNT  5
@@ -88,18 +89,16 @@ struct mdbDatabaseMeta
 {
   uint16 magic_number;          /* MastersDB format magic number    */
   uint16 mdb_version;           /* MastersDB version                */
-  uint32 sys_tables[3];         /* System tables B-tree positions   */
-  uint32 usr_tables[20];        /* User tables B-tree positions     */
-  mdbFreeEntry free_space[20];  /* Free blocks table                */
+  mdbFreeEntry free_space[16];  /* Free blocks table                */
 };
 
 /* MastersDB database runtime information */
 struct mdbDatabase
 {
   mdbDatabaseMeta meta;
-  mdbBtree *tables;
-  mdbBtree *fields;
-  mdbBtree *indexes;
+  mdbTable *tables;
+  mdbTable *columns;
+  mdbTable *indexes;
   mdbDatatype *datatypes;
   FILE *file;
 };
@@ -107,21 +106,21 @@ struct mdbDatabase
 /* MastersDB table record */
 struct mdbTable
 {
-  uint32 name_header;           /* Length of table name             */
-  char name[55];                /* Table name                       */
-  byte num_fields;              /* Number of fields                 */
-  uint32 btree;                 /* Pointer to B-tree in the file    */
+  char data[64];                /* the table record                 */
+  char *name;                   /* Table name                       */
+  byte *num_columns;            /* Number of fields                 */
+  uint32* position;             /* Pointer to B-tree in the file    */
+  mdbColumn *columns;           /* Field information                */
+  mdbBtree* T;                  /* Table's B-tree                   */
+  mdbDatabase *db;              /* Pointer to database              */
 };
 
 /* MastersDB field record */
-struct mdbField
+struct mdbColumn
 {
-  uint32 id_header;             /* Length of field identifier       */
-  char id[60];                  /* Field identifier (table_name + N)*/
-  uint32 type_header;           /* Length of data type name         */
-  char type[8];                 /* Data type name                   */
-  uint32 name_header;           /* Length of field name             */
-  char name[43];                /* field name                       */
+  char id[64];                  /* Field identifier (table_name + N)*/
+  char type[12];                /* Data type name                   */
+  char name[47];                /* field name                       */
   byte indexed;                 /* >0 = The field is indexed        */
   uint32 length;                /* max. length of the field value   */
 };
@@ -129,8 +128,7 @@ struct mdbField
 /* MastersDB index record */
 struct mdbIndex
 {
-  uint32 id_header;             /* Length of index identifier       */
-  char id[60];                  /* Index identifier (field id)      */
+  char id[64];                  /* Index identifier (field id)      */
   uint32 btree;                 /* Pointer to B+-tree in the file   */
 };
 

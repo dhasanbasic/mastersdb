@@ -228,13 +228,17 @@ int main(int argc, char **argv)
 //  return 0;
 
   mdbDatabase *db;
+  int ret;
 
-//  return mdbCreateDatabase(&db, "test.mrdb");
+  ret = mdbCreateDatabase(&db, "test.mrdb");
+  ret = mdbCloseDatabase(db);
 
-  int result = mdbOpenDatabase(&db, "test.mrdb");
-  MQLParser *p = new MQLParser(db);
-  p->mapMetadata();
-  return result;
+  return 0;
+
+//  int result = mdbOpenDatabase(&db, "test.mrdb");
+//  MQLParser *p = new MQLParser(db);
+//  p->mapMetadata();
+//  return result;
 
   return 0;
 }

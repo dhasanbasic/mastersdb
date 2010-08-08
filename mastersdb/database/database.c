@@ -32,6 +32,8 @@
  *  Moved data-type related code to here.
  * 07.08.2010
  *  Fixed few bugs in the database initialization.
+ * 08.08.2010
+ *  Huge re-factoring of database structures and create/open logic.
  */
 
 #include "database.h"
@@ -41,6 +43,15 @@
 int mdbCompareFloat(const void* v1, const void* v2, uint32 size)
 {
   return 0;
+}
+
+void mdbAllocateTable(mdbTable **table)
+{
+  *table = (mdbTable*)malloc(sizeof(mdbTable));
+
+  (*table)->name = (*table)->data;
+  (*table)->num_columns = (byte*)((*table)->data + 59);
+  (*table)->position = (uint32*)((*table)->data + 60);
 }
 
 void mdbInitializeTypes(mdbDatabase *db)
@@ -60,136 +71,179 @@ void mdbInitializeTypes(mdbDatabase *db)
 /* creates the system tables and writes them to a file */
 void mdbCreateSystemTables(mdbDatabase *db)
 {
-  int retValue;
-
-  mdbTable table;
-  mdbField field;
+  int ret;
+  mdbBtree* T;
+  mdbColumn* col;
 
   /* _TABLES - at order 964 the node size is approximately 128 KB */
-  retValue = mdbBtreeCreateTree(
-      &db->tables, MDB_TABLES_ORDER,
-      sizeof(mdbTable), 0);
+  mdbAllocateTable(&db->tables);
+  ret = mdbBtreeCreateTree(&T,MDB_TABLES_ORDER,sizeof(db->tables->data),0);
+  mdbBtreeAllocateNode(&(T->root), T);
+  *(T->root->is_leaf) = 1L;
 
-  mdbBtreeAllocateNode(&(db->tables->root), db->tables);
-  *(db->tables->root->is_leaf) = 1L;
+  T->key_type = &db->datatypes[4];
+  T->ReadNode = &mdbDummyReadNode;
+  T->WriteNode = &mdbDummyWriteNode;
+  T->DeleteNode = &mdbDummyDeleteNode;
 
-  db->tables->key_type = &db->datatypes[4];
-  db->tables->ReadNode = &mdbDummyReadNode;
-  db->tables->WriteNode = &mdbDummyWriteNode;
-  db->tables->DeleteNode = &mdbDummyDeleteNode;
+  db->tables->T = T;
 
-  /* _FIELDS - at order 7944 the node size is approximately 2 MB */
-  retValue = mdbBtreeCreateTree(
-      &db->fields, MDB_FIELDS_ORDER,
-      sizeof(mdbField), 0);
+  /* _COLUMNS - at order 7944 the node size is approximately 2 MB */
+  mdbAllocateTable(&db->columns);
+  ret = mdbBtreeCreateTree(&T,MDB_COLUMNS_ORDER,sizeof(mdbColumn),0);
+  mdbBtreeAllocateNode(&(T->root), T);
+  *(T->root->is_leaf) = 1L;
 
-  mdbBtreeAllocateNode(&(db->fields->root), db->fields);
-  *(db->fields->root->is_leaf) = 1L;
+  T->key_type = &db->datatypes[4];
+  T->ReadNode = &mdbDummyReadNode;
+  T->WriteNode = &mdbDummyWriteNode;
+  T->DeleteNode = &mdbDummyDeleteNode;
 
-  db->fields->key_type = &db->datatypes[4];
-  db->fields->ReadNode = &mdbDummyReadNode;
-  db->fields->WriteNode = &mdbDummyWriteNode;
-  db->fields->DeleteNode = &mdbDummyDeleteNode;
+  db->columns->T = T;
 
   /* _INDEXES - at order 7282 the node size is approximately 1 MB */
-  retValue = mdbBtreeCreateTree(
-      &db->indexes, MDB_INDEXES_ORDER,
-      sizeof(mdbIndex), 0);
+  mdbAllocateTable(&db->indexes);
+  ret = mdbBtreeCreateTree(&T,MDB_INDEXES_ORDER,sizeof(mdbIndex),0);
+  mdbBtreeAllocateNode(&(T->root), T);
+  *(T->root->is_leaf) = 1L;
 
-  mdbBtreeAllocateNode(&(db->indexes->root), db->indexes);
-  *(db->indexes->root->is_leaf) = 1L;
+  T->key_type = &db->datatypes[4];
+  T->ReadNode = &mdbDummyReadNode;
+  T->WriteNode = &mdbDummyWriteNode;
+  T->DeleteNode = &mdbDummyDeleteNode;
 
-  db->indexes->key_type = &db->datatypes[4];
-  db->indexes->ReadNode = &mdbDummyReadNode;
-  db->indexes->WriteNode = &mdbDummyWriteNode;
-  db->indexes->DeleteNode = &mdbDummyDeleteNode;
+  db->indexes->T = T;
 
-  /* --------- _TABLES table ---------- */
+  /* --------- Create the system tables meta-data ------------- */
 
-  strcpy(table.name, "_TABLES"); table.name_header = strlen(table.name);
-  table.num_fields = 3;
-  table.btree = sizeof(mdbDatabaseMeta);
-  mdbBtreeInsert((char*)(&table), db->tables);
+  strcpy(db->tables->name + 4, ".TABLES");
+  *((uint32*)db->tables->name) = strlen(db->tables->name + 4);
+  *(db->tables->num_columns) = 3;
+  *(db->tables->position) = sizeof(mdbDatabaseMeta);
+  mdbBtreeInsert(db->tables->data, db->tables->T);
 
-  /* --------- _FIELDS table ---------- */
+  strcpy(db->columns->name + 4, ".COLUMNS");
+  *((uint32*)db->columns->name) = strlen(db->columns->name + 4);
+  *(db->columns->num_columns) = 5;
+  *(db->columns->position) = sizeof(mdbDatabaseMeta) + sizeof(mdbBtreeMeta);
+  mdbBtreeInsert(db->columns->data, db->tables->T);
 
-  strcpy(table.name, "_FIELDS"); table.name_header = strlen(table.name);
-  table.num_fields = 5;
-  table.btree += sizeof(mdbBtreeMeta);
-  mdbBtreeInsert((char*)(&table), db->tables);
+  strcpy(db->indexes->name + 4, ".INDEXES");
+  *((uint32*)db->indexes->name) = strlen(db->indexes->name + 4);
+  *(db->indexes->num_columns) = 2;
+  *(db->indexes->position) = sizeof(mdbDatabaseMeta) + 2*sizeof(mdbBtreeMeta);
+  mdbBtreeInsert(db->indexes->data, db->tables->T);
 
-  /* --------- _INDEXES table ---------- */
+  /* --------- Create the system table columns meta-data ------------- */
 
-  strcpy(table.name, "_INDEXES"); table.name_header = strlen(table.name);
-  table.num_fields = 2;
-  table.btree += sizeof(mdbBtreeMeta);
-  mdbBtreeInsert((char*)(&table), db->tables);
+  /* --------- .TABLES columns ---------- */
+  db->tables->columns = (mdbColumn*)calloc(3, sizeof(mdbColumn));
 
-  /* --------- _TABLES fields ---------- */
+  col = &db->tables->columns[0];
+  strcpy(col->id + 4, ".TABLES000");
+  strcpy(col->name + 4, "NAME");
+  strcpy(col->type + 4, "STRING");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 55L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_TABLES000"); field.id_header = strlen(field.id);
-  strcpy(field.name, "NAME"); field.name_header = strlen(field.name);
-  strcpy(field.type, "STRING"); field.type_header = strlen(field.type);
-  field.length = 55L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->tables->columns[1];
+  strcpy(col->id + 4, ".TABLES001");
+  strcpy(col->name + 4, "NUM_COLUMNS");
+  strcpy(col->type + 4, "INT-8");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 0L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_TABLES001"); field.id_header = strlen(field.id);
-  strcpy(field.name, "NUM_FIELDS"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-8"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->tables->columns[2];
+  strcpy(col->id + 4, ".TABLES002");
+  strcpy(col->name + 4, "B-TREE");
+  strcpy(col->type + 4, "INT-32");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 0L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_TABLES002"); field.id_header = strlen(field.id);
-  strcpy(field.name, "B-TREE"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  /* --------- .COLUMNS columns ---------- */
+  db->columns->columns = (mdbColumn*)calloc(5, sizeof(mdbColumn));
 
-  /* --------- _FIELDS fields ---------- */
+  col = &db->columns->columns[0];
+  strcpy(col->id + 4, ".COLUMNS000");
+  strcpy(col->name + 4, "ID");
+  strcpy(col->type + 4, "STRING");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 60L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_FIELDS000"); field.id_header = strlen(field.id);
-  strcpy(field.name, "ID"); field.name_header = strlen(field.name);
-  strcpy(field.type, "STRING"); field.type_header = strlen(field.type);
-  field.length = 60L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->columns->columns[1];
+  strcpy(col->id + 4, ".COLUMNS001");
+  strcpy(col->name + 4, "DATATYPE");
+  strcpy(col->type + 4, "STRING");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 8L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_FIELDS001"); field.id_header = strlen(field.id);
-  strcpy(field.name, "DATATYPE"); field.name_header = strlen(field.name);
-  strcpy(field.type, "STRING"); field.type_header = strlen(field.type);
-  field.length = 8L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->columns->columns[2];
+  strcpy(col->id + 4, ".COLUMNS002");
+  strcpy(col->name + 4, "NAME");
+  strcpy(col->type + 4, "STRING");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 43L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_FIELDS002"); field.id_header = strlen(field.id);
-  strcpy(field.name, "NAME"); field.name_header = strlen(field.name);
-  strcpy(field.type, "STRING"); field.type_header = strlen(field.type);
-  field.length = 43L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->columns->columns[3];
+  strcpy(col->id + 4, ".COLUMNS003");
+  strcpy(col->name + 4, "INDEXED");
+  strcpy(col->type + 4, "INT-8");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 0L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_FIELDS003"); field.id_header = strlen(field.id);
-  strcpy(field.name, "INDEXED"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-8"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->columns->columns[4];
+  strcpy(col->id + 4, ".COLUMNS004");
+  strcpy(col->name + 4, "LENGTH");
+  strcpy(col->type + 4, "INT-32");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 0L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_FIELDS004"); field.id_header = strlen(field.id);
-  strcpy(field.name, "LENGTH"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  /* --------- .INDEXES columns ---------- */
+  db->indexes->columns = (mdbColumn*)calloc(2, sizeof(mdbColumn));
 
-  /* --------- _INDEXES fields ---------- */
+  col = &db->indexes->columns[0];
+  strcpy(col->id + 4, ".INDEXES000");
+  strcpy(col->name + 4, "ID");
+  strcpy(col->type + 4, "STRING");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 58L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
-  strcpy(field.id, "_INDEXES000"); field.id_header = strlen(field.id);
-  strcpy(field.name, "ID"); field.name_header = strlen(field.name);
-  strcpy(field.type, "STRING"); field.type_header = strlen(field.type);
-  field.length = 58L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
-
-  strcpy(field.id, "_INDEXES001"); field.id_header = strlen(field.id);
-  strcpy(field.name, "B-TREE"); field.name_header = strlen(field.name);
-  strcpy(field.type, "INT-32"); field.type_header = strlen(field.type);
-  field.length = 0L; field.indexed = 0;
-  mdbBtreeInsert((char*)(&field), db->fields);
+  col = &db->indexes->columns[1];
+  strcpy(col->id + 4, ".INDEXES001");
+  strcpy(col->name + 4, "B-TREE");
+  strcpy(col->type + 4, "INT-32");
+  *((uint32*)col->id) = strlen(col->id + 4);
+  *((uint32*)col->name) = strlen(col->name + 4);
+  *((uint32*)col->type) = strlen(col->type + 4);
+  col->length = 0L; col->indexed = 0;
+  mdbBtreeInsert((char*)col, db->columns->T);
 
 }
 
@@ -205,33 +259,33 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename)
   l_db->meta.mdb_version = MDB_VERSION;
 
   /* writes the MastersDB header and meta-data to a file */
-  if ((l_db->file = fopen(filename, "wb")) != NULL)
+  if ((l_db->file = fopen(filename, "w+b")) != NULL)
   {
     mdbCreateSystemTables(l_db);
 
     /* positions of the database system tables (B-tree + root node) */
-    l_db->meta.sys_tables[0] = sizeof(mdbDatabaseMeta);
-    l_db->meta.sys_tables[1] = l_db->meta.sys_tables[0] + sizeof(mdbBtreeMeta);
-    l_db->meta.sys_tables[2] = l_db->meta.sys_tables[1] + sizeof(mdbBtreeMeta);
+    l_db->tables->T->meta.root_position =
+        *(l_db->indexes->position) + sizeof(mdbBtreeMeta);
 
-    l_db->tables->meta.root_position =
-        l_db->meta.sys_tables[2] + sizeof(mdbBtreeMeta);
+    l_db->columns->T->meta.root_position =
+        l_db->tables->T->meta.root_position + l_db->tables->T->nodeSize;
 
-    l_db->fields->meta.root_position = l_db->tables->meta.root_position
-        + l_db->tables->nodeSize;
-
-    l_db->indexes->meta.root_position = l_db->fields->meta.root_position
-        + l_db->fields->nodeSize;
+    l_db->indexes->T->meta.root_position =
+        l_db->columns->T->meta.root_position + l_db->columns->T->nodeSize;
 
     /* writes all meta data to the empty database */
-    fwrite(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
-    fwrite(&l_db->tables->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
-    fwrite(&l_db->fields->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
-    fwrite(&l_db->indexes->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
-    fwrite(l_db->tables->root->data, l_db->tables->nodeSize, 1, l_db->file);
-    fwrite(l_db->fields->root->data, l_db->fields->nodeSize, 1, l_db->file);
-    fwrite(l_db->indexes->root->data, l_db->indexes->nodeSize, 1, l_db->file);
-    fclose(l_db->file);
+    fwrite(&(l_db->meta), sizeof(mdbDatabaseMeta), 1, l_db->file);
+
+    fwrite(&(l_db->tables->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&(l_db->columns->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&(l_db->indexes->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+
+    fwrite(l_db->tables->T->root->data,
+        l_db->tables->T->nodeSize, 1, l_db->file);
+    fwrite(l_db->columns->T->root->data,
+        l_db->columns->T->nodeSize,1, l_db->file);
+    fwrite(l_db->indexes->T->root->data,
+        l_db->indexes->T->nodeSize,1, l_db->file);
   }
   else
   {
@@ -246,22 +300,25 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename)
 int mdbOpenDatabase(mdbDatabase **db, const char *filename)
 {
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
-
+  uint32 size_test = sizeof(mdbDatabaseMeta) + 3 * sizeof(mdbBtreeMeta);
+  mdbBtree *T;
   mdbInitializeTypes(l_db);
 
   /* creates the MastersDB header */
   memset(&l_db->meta, 0, sizeof(mdbDatabaseMeta));
 
   /* reads the MastersDB header and meta-data from a file */
-  if ((l_db->file = fopen(filename, "rb+")) != NULL)
+  if ((l_db->file = fopen(filename, "r+b")) != NULL)
   {
     /* checks the file size */
-    fseek(l_db->file, 0L, SEEK_END);
-    if (ftell(l_db->file) < sizeof(mdbDatabaseMeta))
+    if (fseek(l_db->file, size_test, SEEK_SET) != 0)
     {
+      fclose(l_db->file);
       free(l_db);
       return MDB_DATABASE_INVALIDFILE;
     }
+
+    fseek(l_db->file, 0L, SEEK_SET);
 
     /* reads the header and checks the magic number and version */
     fseek(l_db->file, 0L, SEEK_SET);
@@ -273,33 +330,47 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
       return MDB_DATABASE_INVALIDFILE;
     }
 
-    /* allocates the memory for the system table B-tree descriptors */
-    l_db->tables = (mdbBtree*)malloc(sizeof(mdbBtree));
-    l_db->fields = (mdbBtree*)malloc(sizeof(mdbBtree));
-    l_db->indexes = (mdbBtree*)malloc(sizeof(mdbBtree));
+    /* allocates and loads the B-tree of each system table */
 
-    /* reads the system table B-tree descriptors into memory */
-    fread(&l_db->tables->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
-    fread(&l_db->fields->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
-    fread(&l_db->indexes->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    /* ------- .TABLES ------- */
+    mdbAllocateTable(&l_db->tables);
+    T = (mdbBtree*)malloc(sizeof(mdbBtree));
+    fread(&T->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    BT_CALC_NODESIZE(T);
+    T->key_type = &l_db->datatypes[4];
+    T->ReadNode = &mdbDummyReadNode;
+    T->WriteNode = &mdbDummyWriteNode;
+    T->DeleteNode = &mdbDummyDeleteNode;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->tables->T = T;
 
-    BT_CALC_NODESIZE(l_db->tables);
-    BT_CALC_NODESIZE(l_db->fields);
-    BT_CALC_NODESIZE(l_db->indexes);
+    /* ------ .COLUMNS ------- */
+    mdbAllocateTable(&l_db->columns);
+    T = (mdbBtree*)malloc(sizeof(mdbBtree));
+    fread(&T->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    BT_CALC_NODESIZE(T);
+    T->key_type = &l_db->datatypes[4];
+    T->ReadNode = &mdbDummyReadNode;
+    T->WriteNode = &mdbDummyWriteNode;
+    T->DeleteNode = &mdbDummyDeleteNode;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->columns->T = T;
 
-    l_db->tables->key_type = &l_db->datatypes[4];
-    l_db->fields->key_type = &l_db->datatypes[4];
-    l_db->indexes->key_type = &l_db->datatypes[4];
+    /* ------ .INDEXES ------- */
+    mdbAllocateTable(&l_db->indexes);
+    T = (mdbBtree*)malloc(sizeof(mdbBtree));
+    fread(&T->meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    BT_CALC_NODESIZE(T);
+    T->key_type = &l_db->datatypes[4];
+    T->ReadNode = &mdbDummyReadNode;
+    T->WriteNode = &mdbDummyWriteNode;
+    T->DeleteNode = &mdbDummyDeleteNode;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->indexes->T = T;
 
-    /* allocates the memory for the system table root nodes */
-    mdbBtreeAllocateNode(&l_db->tables->root,l_db->tables);
-    mdbBtreeAllocateNode(&l_db->fields->root,l_db->fields);
-    mdbBtreeAllocateNode(&l_db->indexes->root,l_db->indexes);
-
-    /* reads the system table root nodes into memory */
-    fread(l_db->tables->root->data, l_db->tables->nodeSize, 1, l_db->file);
-    fread(l_db->fields->root->data, l_db->fields->nodeSize, 1, l_db->file);
-    fread(l_db->indexes->root->data, l_db->indexes->nodeSize, 1, l_db->file);
   }
   else
   {
@@ -312,7 +383,47 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
 }
 
 /* Loads an existing MastersDB database, including header check */
-int mdbCloseDatabase(const mdbDatabase *db)
+int mdbCloseDatabase(mdbDatabase *db)
+{
+  /* saves the system table root nodes */
+  fseek(db->file, db->tables->T->meta.root_position, SEEK_SET);
+  fwrite(db->tables->T->root->data, db->tables->T->nodeSize, 1, db->file);
+
+  fseek(db->file, db->columns->T->meta.root_position, SEEK_SET);
+  fwrite(db->columns->T->root->data, db->columns->T->nodeSize, 1, db->file);
+
+  fseek(db->file, db->indexes->T->meta.root_position, SEEK_SET);
+  fwrite(db->indexes->T->root->data, db->indexes->T->nodeSize, 1, db->file);
+
+  /* the file can now be close */
+  fclose(db->file);
+
+  /* frees all dynamically allocated structures */
+//  cfree(db->tables->columns);
+  free(db->tables->T->root->data);
+  free(db->tables->T->root);
+  free(db->tables->T);
+  free(db->tables);
+
+//  cfree(db->columns->columns);
+  free(db->columns->T->root->data);
+  free(db->columns->T->root);
+  free(db->columns->T);
+  free(db->columns);
+
+//  cfree(db->indexes->columns);
+  free(db->indexes->T->root->data);
+  free(db->indexes->T->root);
+  free(db->indexes->T);
+  free(db->indexes);
+
+  free(db);
+
+  return MDB_DATABASE_SUCCESS;
+}
+
+/* Creates a table and stores its B-tree and root node into the database */
+int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree)
 {
   return MDB_DATABASE_SUCCESS;
 }

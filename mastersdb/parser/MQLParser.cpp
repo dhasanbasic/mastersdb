@@ -57,7 +57,7 @@ void MQLParser::clearMetadata()
     for(it = columns.begin(); it != columns.end(); ++it)
     {
       delete it->first;
-      delete (mdbField*)it->second;
+      delete (mdbColumn*)it->second;
     }
     columns.clear();
   }
@@ -86,8 +86,8 @@ void MQLParser::mapMetadata()
   mdbBtreeTraversal* trvTables = new mdbBtreeTraversal;
   mdbTable *pTable = new mdbTable;
   mdbTable *cTable;
-  mdbField *pField = new mdbField;
-  mdbField *cField;
+  mdbColumn *pField = new mdbColumn;
+  mdbColumn *cField;
   string *strTable;
   string *strField;
 
@@ -97,45 +97,45 @@ void MQLParser::mapMetadata()
   clearMetadata();
 
   // for each table
-  trvTables->node = db->tables->root;
+  trvTables->node = NULL;//db->tables->root;
   trvTables->position = 0;
   trvTables->parent = NULL;
 
   while (mdbBtreeTraverse(&trvTables, (char*)pTable) != MDB_BTREE_NOTFOUND)
   {
-    // create a copy of the metadata
-    cTable = new mdbTable;
-    *cTable = *pTable;
-    strTable = new string(pTable->name, pTable->name_header);
-    tables.insert(metaPair(strTable, cTable));
-
-    // for each column of the current table
-    iField = 0;
-
-    while (iField < pTable->num_fields)
-    {
-      // find the column meta data
-      sprintf(id, "....%s%03u", strTable->c_str(), iField);
-      *((uint32*)id) = strTable->length() + 3;
-      mdbBtreeSearch(id, (char*)pField, db->fields);
-
-      // map into the columns map
-      cField = new mdbField;
-      *cField = *pField;
-      strField = new string(*strTable);
-      strField->append(".");
-      strField->append(pField->name, pField->name_header);
-      columns.insert(metaPair(strField, cField));
-
-      iField++;
-    }
+//    // create a copy of the metadata
+//    cTable = new mdbTable;
+//    *cTable = *pTable;
+////    strTable = new string(pTable->name, pTable->name_header);
+//    tables.insert(metaPair(strTable, cTable));
+//
+//    // for each column of the current table
+//    iField = 0;
+//
+//    while (iField < pTable->num_fields)
+//    {
+//      // find the column meta data
+//      sprintf(id, "....%s%03u", strTable->c_str(), iField);
+//      *((uint32*)id) = strTable->length() + 3;
+//      mdbBtreeSearch(id, (char*)pField, db->fields);
+//
+//      // map into the columns map
+//      cField = new mdbField;
+//      *cField = *pField;
+//      strField = new string(*strTable);
+//      strField->append(".");
+////      strField->append(pField->name, pField->name_header);
+//      columns.insert(metaPair(strField, cField));
+//
+//      iField++;
+//    }
 
   }
 
-  clearMetadata();
-
-  delete pTable;
-  delete pField;
+//  clearMetadata();
+//
+//  delete pTable;
+//  delete pField;
 }
 
 MQLParser::~MQLParser()
