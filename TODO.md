@@ -5,14 +5,12 @@
 
 Active development
 ------------------
-  * implement mdbCloseDatabase for freeing used resources
-  * extend the dummy implementations of mbdBtree{Read,Write}Node functions
+  * implement table specific functions (mdbCreateTable, mdbLoadTable)
+  * design and implement an SQL Engine/Parser
   
 Pending
 -------
-  * ensure that the mdbBtree* functions are aware of the data type of the
-    primary key
-  * design and implement an SQL Engine/Parser
+  * extend the dummy implementations of mbdBtree{Read,Write}Node functions
   * design and implement an object oriented wrapper around the database API
   * design and implement the B+-tree structure (secondary indexes)
 
@@ -27,7 +25,7 @@ Finished
        INT-16   6            0       2         Standard C -> memcmp
        INT-32   6            0       4         Standard C -> memcmp
        FLOAT    5            0       4         assembly   -> CompareFloat
-       CHAR-8   6            4       N*1 + 4   Standard C -> strncmp
+       STRING   6            4       N*1 + 4   Standard C -> strncmp
        
     ** design and implement the missing type comparison functions:
       - mdbCompareFloat
@@ -35,53 +33,54 @@ Finished
   * design a file format for storing many B-trees
     # MastersDB format magic number & version              4 bytes
     # MastersDB format header
-      - 3 entry B-tree descriptor table (system tables) ( 12 bytes)
-      - 20 entry B-tree descriptor table                ( 80 bytes)
-      - 20 entry free blocks table (8 bytes each)       (160 bytes)
+      - 16 entry free blocks table (8 bytes each)       (128 bytes)
       --------------------------------------------------------------
-      - TOTAL                                            256 bytes
-    # B-tree for _TABLES table
-    # B-tree for _FIELDS table
-    # B-tree for _INDEXES table
+      - TOTAL                                            132 bytes
+    # B-tree for .TABLES table
+    # B-tree for .COLUMNS table
+    # B-tree for .INDEXES table
     # B-tree's for user-defined tables
     # ...
 
   * design and implement the three system tables
 
-    # _TABLES
+    # .TABLES
       -----------------------------------------------------------------
-      FIELD    | TYPE   | LENGTH | SIZE | DESCRIPTION
+      COLUMN   | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
       (#)Name  | STRING | 55     | 59   | Name of the table
-      Fields   | INT-8  | N/A    | 1    | Number of fields
+      Fields   | INT-8  | N/A    | 1    | Number of columns
       B-tree   | INT-32 | N/A    | 4    | Pointer to B-tree descriptor
       -----------------------------------------------------------------
       - Record size: 64 bytes
 
-    # _FIELDS
+    # .COLUMNS
       -----------------------------------------------------------------
-      FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
+      COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | STRING | 60     | 64   | Name of the field
+      (#)Identifier  | STRING | 60     | 64   | Name of the column
       Type           | STRING | 8      | 12   | Name of the data type
-      Name           | STRING | 43     | 47   | Name of the field
-      Indexed        | INT-8  | N/A    | 1    | Field is indexed
+      Name           | STRING | 43     | 47   | Name of the column
+      Indexed        | INT-8  | N/A    | 1    | Column is indexed
       Length         | INT-32 | N/A    | 4    | Maximum data length
       -----------------------------------------------------------------
       - Record size: 128 bytes
 
-    # _INDEXES
+    # .INDEXES
       -----------------------------------------------------------------
-      FIELD          | TYPE   | LENGTH | SIZE | DESCRIPTION
+      COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
-      (#)Identifier  | STRING | 60     | 64   | Name of the field
+      (#)Identifier  | STRING | 60     | 64   | Name of the column
       B+ tree        | INT-32 | N/A    | 4    | Pointer to B+ tree
       -----------------------------------------------------------------
       - Record size: 68 bytes
 
-  * implement mdbCreateDatabase for creating an empty MastersDB database
-  
+  * implement mdbCreateDatabase for creating an empty MastersDB database  
   * implement mdbOpenDatabase for loading database meta data into memory
+  * implement mdbCloseDatabase for freeing used resources
+  * re-factoring of whole database
+  * ensure that the mdbBtree* functions are aware of the data type of the
+    primary key
 
 Optimizations
 -------------
