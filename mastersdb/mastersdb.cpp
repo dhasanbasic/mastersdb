@@ -228,9 +228,13 @@ int main(int argc, char **argv)
 //  return 0;
 
   mdbDatabase *db;
+  mdbTable *tbl;
+
   int ret;
 
-  ret = mdbCreateDatabase(&db, "test.mrdb");
+  ret = mdbOpenDatabase(&db, "test.mrdb");
+  ret = mdbLoadTable(db, &tbl, ".COLUMNS");
+  ret = mdbFreeTable(tbl);
   ret = mdbCloseDatabase(db);
 
   return 0;

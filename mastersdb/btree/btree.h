@@ -46,6 +46,8 @@
  *  Added the BtreeTraverse function.
  * 07.08.2010
  *  Removed "key_size" from mdbBtreeMeta.
+ * 09.08.2010
+ *  Re-factoring of mdbDatatype structure.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -113,8 +115,7 @@ struct mdbBtreeTraversal
 
 /* MastersDB data type */
 struct mdbDatatype {
-  char name[8];           /* upper-case name, including null char.          */
-  byte length;            /* length of the name                             */
+  char name[12];          /* upper-case name, including null char.          */
   byte header;            /* length of header information (0 if not used)   */
   byte size;              /* size of the value, 0 for varying-size types    */
   CompareKeysPtr compare; /* pointer to comparison function                 */

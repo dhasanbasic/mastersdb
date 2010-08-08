@@ -35,7 +35,11 @@
  *  Moved mdbDatatype structure to btree.h.
  * 08.08.2010
  *  Restructured the database.
- *  Added the mdbDatabaseCreateTable function.
+ *  Added mdbCreateTable function.
+ *  Added mdbLoadSystemTables function.
+ * 09.08.2010
+ *  Added mdbLoadTable function.
+ *  Added mdbFreeTable function.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -61,13 +65,20 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename);
 /* Loads an existing MastersDB database, including header check */
 int mdbCloseDatabase(mdbDatabase *db);
 
+/* Loads the meta data, B-tree descriptor and root node of a table */
+int mdbFreeTable(mdbTable *t);
+
 /* Creates a table and stores its B-tree and root node into the database */
 int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree);
+
+/* Loads the meta data, B-tree descriptor and root node of a table */
+int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name);
 
 /* General return values */
 #define MDB_DATABASE_SUCCESS          1  /* Database creation succeeded      */
 #define MDB_DATABASE_NOFILE          -1  /* Database creation failure (I/O)  */
 #define MDB_DATABASE_INVALIDFILE     -2  /* Tried to open invalid file       */
+#define MDB_DATABASE_NO_SUCH_TABLE   -3  /* Tried to load non-existing table */
 
 /* System tables B-tree parameters */
 #define MDB_TABLES_ORDER          964

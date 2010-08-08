@@ -34,6 +34,12 @@
  *  Fixed few bugs in the database initialization.
  * 08.08.2010
  *  Huge re-factoring of database structures and create/open logic.
+ *  Added mdbCreateTable function.
+ *  Added mdbLoadSystemTables function.
+ * 09.08.2010
+ *  Added mdbLoadTable function.
+ *  Re-factoring of the mdbDatatype structure.
+ *  Added mdbFreeTable function.
  */
 
 #include "database.h"
@@ -54,18 +60,57 @@ void mdbAllocateTable(mdbTable **table)
   (*table)->position = (uint32*)((*table)->data + 60);
 }
 
+int mdbFreeTable(mdbTable *t)
+{
+  cfree(t->columns);
+  free(t->T->root->data);
+  free(t->T->root);
+  free(t->T);
+  free(t);
+  return MDB_DATABASE_SUCCESS;
+}
+
 void mdbInitializeTypes(mdbDatabase *db)
 {
   /* initialize the data types array */
   db->datatypes = (mdbDatatype*)calloc(MDB_TYPE_COUNT, sizeof(mdbDatatype));
 
-  db->datatypes[0] = (mdbDatatype){ "INT-8", 5,0, sizeof(byte),   &memcmp};
-  db->datatypes[1] = (mdbDatatype){ "INT-16",6,0, sizeof(uint16), &memcmp};
-  db->datatypes[2] = (mdbDatatype){ "INT-32",6,0, sizeof(uint32), &memcmp};
-  db->datatypes[3] = (mdbDatatype){ "FLOAT", 5,0, sizeof(float),
+  db->datatypes[0] = (mdbDatatype){ "....INT-8",  0, sizeof(byte),   &memcmp};
+  *((uint32*)db->datatypes[0].name) = strlen(db->datatypes[0].name + 4);
+
+  db->datatypes[1] = (mdbDatatype){ "....INT-16", 0, sizeof(uint16), &memcmp};
+  *((uint32*)db->datatypes[1].name) = strlen(db->datatypes[1].name + 4);
+
+  db->datatypes[2] = (mdbDatatype){ "....INT-32", 0, sizeof(uint32), &memcmp};
+  *((uint32*)db->datatypes[2].name) = strlen(db->datatypes[2].name + 4);
+
+  db->datatypes[3] = (mdbDatatype){ "....FLOAT" , 0, sizeof(float),
     &mdbCompareFloat};
-  db->datatypes[4] = (mdbDatatype){ "STRING",6,4, sizeof(byte),
+  *((uint32*)db->datatypes[3].name) = strlen(db->datatypes[3].name + 4);
+
+  db->datatypes[4] = (mdbDatatype){ "....STRING", 4, sizeof(byte),
     (CompareKeysPtr)&strncmp};
+  *((uint32*)db->datatypes[4].name) = strlen(db->datatypes[4].name + 4);
+}
+
+mdbDatatype *mdbFindType(mdbDatabase* db, const char* key)
+{
+  uint32 len_key = *((uint32*)key);
+  uint32 len_type;
+  uint8 i;
+
+  for (i=0; i < MDB_TYPE_COUNT; i++)
+  {
+    len_type = *((uint32*)db->datatypes[i].name);
+    if (len_key < len_type) len_type = len_key;
+    if (strncmp(key + 4, db->datatypes[i].name + 4, len_type) == 0)
+    {
+      return &(db->datatypes[i]);
+    }
+  }
+
+  /* STRING is default */
+  return &(db->datatypes[4]);
 }
 
 /* creates the system tables and writes them to a file */
@@ -86,6 +131,7 @@ void mdbCreateSystemTables(mdbDatabase *db)
   T->WriteNode = &mdbDummyWriteNode;
   T->DeleteNode = &mdbDummyDeleteNode;
 
+  db->tables->db = db;
   db->tables->T = T;
 
   /* _COLUMNS - at order 7944 the node size is approximately 2 MB */
@@ -99,6 +145,7 @@ void mdbCreateSystemTables(mdbDatabase *db)
   T->WriteNode = &mdbDummyWriteNode;
   T->DeleteNode = &mdbDummyDeleteNode;
 
+  db->columns->db = db;
   db->columns->T = T;
 
   /* _INDEXES - at order 7282 the node size is approximately 1 MB */
@@ -112,6 +159,7 @@ void mdbCreateSystemTables(mdbDatabase *db)
   T->WriteNode = &mdbDummyWriteNode;
   T->DeleteNode = &mdbDummyDeleteNode;
 
+  db->indexes->db = db;
   db->indexes->T = T;
 
   /* --------- Create the system tables meta-data ------------- */
@@ -247,6 +295,38 @@ void mdbCreateSystemTables(mdbDatabase *db)
 
 }
 
+int mdbLoadSystemTables(mdbDatabase *db)
+{
+  int ret;
+  uint8 t, c;
+  char id[16];
+  const char *tbl_ids[3] = { ".TABLES", ".COLUMNS", ".INDEXES" };
+  mdbTable *tbl_ptrs[3] = { db->tables, db->columns, db->indexes };
+
+  for (t = 0; t < 3; t++)
+  {
+    /* loads the table meta data */
+    strcpy(id + 4, tbl_ids[t]);
+    *((uint32*)id) = strlen(id + 4);
+    ret = mdbBtreeSearch(id, tbl_ptrs[t]->data, db->tables->T);
+
+    /* loads the columns meta data */
+    tbl_ptrs[t]->columns =
+        (mdbColumn*)calloc(*(tbl_ptrs[t]->num_columns), sizeof(mdbColumn));
+
+    for (c=0; c < *(tbl_ptrs[t]->num_columns); c++)
+    {
+      sprintf(id + 4, "%s%03u%c", tbl_ids[t], c, '\0');
+      *((uint32*)id) = strlen(id + 4);
+      ret = mdbBtreeSearch(id,
+          (char*)&(tbl_ptrs[t]->columns[c]), db->columns->T);
+    }
+
+  }
+
+  return MDB_DATABASE_SUCCESS;
+}
+
 int mdbCreateDatabase(mdbDatabase **db, const char *filename)
 {
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
@@ -302,6 +382,8 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
   uint32 size_test = sizeof(mdbDatabaseMeta) + 3 * sizeof(mdbBtreeMeta);
   mdbBtree *T;
+  int ret;
+
   mdbInitializeTypes(l_db);
 
   /* creates the MastersDB header */
@@ -318,14 +400,13 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
       return MDB_DATABASE_INVALIDFILE;
     }
 
-    fseek(l_db->file, 0L, SEEK_SET);
-
     /* reads the header and checks the magic number and version */
     fseek(l_db->file, 0L, SEEK_SET);
     fread(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
     if (l_db->meta.magic_number != MDB_MAGIC_NUMBER ||
         l_db->meta.mdb_version != MDB_VERSION)
     {
+      fclose(l_db->file);
       free(l_db);
       return MDB_DATABASE_INVALIDFILE;
     }
@@ -341,8 +422,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     T->ReadNode = &mdbDummyReadNode;
     T->WriteNode = &mdbDummyWriteNode;
     T->DeleteNode = &mdbDummyDeleteNode;
-    mdbBtreeAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->tables->db = l_db;
     l_db->tables->T = T;
 
     /* ------ .COLUMNS ------- */
@@ -354,8 +434,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     T->ReadNode = &mdbDummyReadNode;
     T->WriteNode = &mdbDummyWriteNode;
     T->DeleteNode = &mdbDummyDeleteNode;
-    mdbBtreeAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->columns->db = l_db;
     l_db->columns->T = T;
 
     /* ------ .INDEXES ------- */
@@ -367,16 +446,29 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     T->ReadNode = &mdbDummyReadNode;
     T->WriteNode = &mdbDummyWriteNode;
     T->DeleteNode = &mdbDummyDeleteNode;
-    mdbBtreeAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->indexes->db = l_db;
     l_db->indexes->T = T;
 
+    /* ------ Root nodes of the system table B-trees ------ */
+    T = l_db->tables->T;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
+
+    T = l_db->columns->T;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
+
+    T = l_db->indexes->T;
+    mdbBtreeAllocateNode(&T->root,T);
+    fread(T->root->data, T->nodeSize, 1, l_db->file);
   }
   else
   {
     free(l_db);
     return MDB_DATABASE_NOFILE;
   }
+
+  ret = mdbLoadSystemTables(l_db);
 
   *db = l_db;
   return MDB_DATABASE_SUCCESS;
@@ -386,6 +478,9 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
 int mdbCloseDatabase(mdbDatabase *db)
 {
   /* saves the system table root nodes */
+  fseek(db->file, 0L, SEEK_SET);
+  fwrite(&(db->meta), sizeof(mdbDatabaseMeta), 1, db->file);
+
   fseek(db->file, db->tables->T->meta.root_position, SEEK_SET);
   fwrite(db->tables->T->root->data, db->tables->T->nodeSize, 1, db->file);
 
@@ -395,27 +490,13 @@ int mdbCloseDatabase(mdbDatabase *db)
   fseek(db->file, db->indexes->T->meta.root_position, SEEK_SET);
   fwrite(db->indexes->T->root->data, db->indexes->T->nodeSize, 1, db->file);
 
-  /* the file can now be close */
-  fclose(db->file);
-
   /* frees all dynamically allocated structures */
-//  cfree(db->tables->columns);
-  free(db->tables->T->root->data);
-  free(db->tables->T->root);
-  free(db->tables->T);
-  free(db->tables);
+  mdbFreeTable(db->tables);
+  mdbFreeTable(db->columns);
+  mdbFreeTable(db->indexes);
 
-//  cfree(db->columns->columns);
-  free(db->columns->T->root->data);
-  free(db->columns->T->root);
-  free(db->columns->T);
-  free(db->columns);
-
-//  cfree(db->indexes->columns);
-  free(db->indexes->T->root->data);
-  free(db->indexes->T->root);
-  free(db->indexes->T);
-  free(db->indexes);
+  /* the file can now be closed */
+  fclose(db->file);
 
   free(db);
 
@@ -425,5 +506,61 @@ int mdbCloseDatabase(mdbDatabase *db)
 /* Creates a table and stores its B-tree and root node into the database */
 int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree)
 {
+  return MDB_DATABASE_SUCCESS;
+}
+
+int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
+{
+  char key[64];
+  int ret;
+  uint8 c;
+  mdbTable *l_t;
+  mdbBtree *T;
+
+  mdbAllocateTable(t);
+  l_t = *t;
+
+  /* load the table meta data */
+  strcpy(key + 4, name);
+  *((uint32*)key) = strlen(key + 4);
+  ret = mdbBtreeSearch(key, l_t->data, db->tables->T);
+
+  if (ret == MDB_BTREE_SEARCH_FOUND)
+  {
+    /* load the table columns meta data */
+    l_t->columns = (mdbColumn*)calloc(*(l_t->num_columns), sizeof(mdbColumn));
+
+    for (c=0; c < *(l_t->num_columns); c++)
+    {
+      sprintf(key + 4, "%s%03u%c", name, c, '\0');
+      *((uint32*)key) = strlen(key + 4);
+      ret = mdbBtreeSearch(key, (char*)&(l_t->columns[c]), db->columns->T);
+    }
+
+    /* load the table B-tree descriptor */
+    T = (mdbBtree*)malloc(sizeof(mdbBtree));
+    fseek(db->file, *(l_t->position), SEEK_SET);
+    fread(&T->meta, sizeof(mdbBtreeMeta), 1, db->file);
+    BT_CALC_NODESIZE(T);
+    T->ReadNode = &mdbDummyReadNode;
+    T->WriteNode = &mdbDummyWriteNode;
+    T->DeleteNode = &mdbDummyDeleteNode;
+    l_t->db = db;
+
+    /* set the appropriate key data type */
+    T->key_type = mdbFindType(db, l_t->columns[0].type);
+
+    /* load the table's B-tree root node */
+    mdbBtreeAllocateNode(&T->root,T);
+    fseek(db->file, T->meta.root_position, SEEK_SET);
+    fread(T->root->data, T->nodeSize, 1, db->file);
+    l_t->T = T;
+  }
+  else
+  {
+    free(l_t);
+    return MDB_DATABASE_NO_SUCH_TABLE;
+  }
+
   return MDB_DATABASE_SUCCESS;
 }
