@@ -68,7 +68,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename);
 int mdbCloseDatabase(mdbDatabase *db);
 
 /* Allocates a new mdbTable structure and initializes the internal pointers */
-int mdbAllocateTable(mdbTable **table);
+int mdbAllocateTable(mdbTable **table, mdbDatabase *db);
 
 /* Loads the meta data, B-tree descriptor and root node of a table */
 int mdbFreeTable(mdbTable *t);

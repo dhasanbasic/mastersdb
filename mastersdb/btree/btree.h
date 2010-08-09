@@ -48,6 +48,7 @@
  *  Removed "key_size" from mdbBtreeMeta.
  * 09.08.2010
  *  Re-factoring of mdbDatatype structure.
+ *  Added mdbBtreeOptimalOrder function.
  */
 
 #ifndef BTREE_H_INCLUDED
@@ -149,6 +150,9 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
 
 /* B-tree key comparison based on the data type of the key */
 int mdbBtreeCmp(const char* k1, const char* k2, const mdbBtree *tree);
+
+/* Calculates the optimal order of a B-tree for the given record size */
+uint32 mdbBtreeOptimalOrder(uint32 record_size);
 
 /* General return values */
 #define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */

@@ -49,6 +49,8 @@
  *  Added the BtreeTraverse function.
  * 07.08.2010
  *  Removed "key_size" from mdbBtreeMeta.
+ * 09.08.2010
+ *  Added mdbBtreeOptimalOrder function.
  */
 
 #include "btree.h"
@@ -712,4 +714,33 @@ int mdbBtreeCmp(const char* k1, const char* k2, const mdbBtree *tree)
         k1 + tree->key_type->header, k2 + tree->key_type->header, size1);
   }
   return tree->key_type->compare(k1, k2, tree->key_type->size);
+}
+
+uint32 mdbBtreeOptimalOrder(uint32 record_size)
+{
+  const static uint32 LOWER_NS = 1<<10; /* lowest possible node size: 1 KB*/
+  const static uint32 UPPER_NS = 1<<20; /* highest possible node size:1 MB*/
+  uint32 ideal_ns;                      /* ideal node size                  */
+  uint32 real_ns;                       /* real node size                   */
+  uint32 opt_order = 0L;                /* optimal B-tree order             */
+  uint32 cur_order;                     /* current calculated B-tree order  */
+  int cur_diff;                         /* current (ideal - real) difference*/
+  int min_diff = UPPER_NS;              /* minimum (ideal - real) difference*/
+
+  for (ideal_ns = LOWER_NS; ideal_ns <= UPPER_NS; ideal_ns += 1024)
+  {
+    if (ideal_ns < record_size) continue;
+
+    cur_order = (ideal_ns + record_size - 8) / ((record_size + 4) * 2);
+    if (opt_order == 0L) opt_order = cur_order;
+    real_ns = (cur_order + 1) * 8 + ((cur_order * 2) - 1) * record_size;
+    cur_diff = (int)ideal_ns - (int)real_ns;
+
+    if (cur_diff <= min_diff)
+    {
+      min_diff = cur_diff;
+      opt_order = cur_order;
+    }
+  }
+  return opt_order;
 }

@@ -227,6 +227,31 @@ using namespace MDB;
 //  free(t);
 //  return 0;
 
+int createTable(mdbTable *t)
+{
+  uint8 c;
+  const char *name = "STUDENTI";
+  const char *c_names[4] = { "IME", "PREZIME", "DATUM_RODENJA" };
+  const uint32 c_lengths[4] = {10L, 40L, 10L};
+
+  strcpy(t->name + 4, name);
+  *((uint32*)t->name) = strlen(name);
+  *(t->num_columns) = 3;
+
+  t->columns = (mdbColumn*)calloc(*(t->num_columns), sizeof(mdbColumn));
+
+  for (c=0; c < *(t->num_columns); c++)
+  {
+    strcpy(t->columns[c].name + 4, c_names[c]);
+    *((uint32*)t->columns[c].name) = strlen(c_names[c]);
+    t->columns[c].indexed = 0;
+    t->columns[c].length = c_lengths[c];
+    t->columns[c].type = 4;
+  }
+
+  return 1;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -235,8 +260,15 @@ int main(int argc, char **argv)
 
   int ret;
 
+  ret = mdbCreateDatabase(&db, "test.mrdb");
+  ret = mdbAllocateTable(&tbl, db);
+  ret = createTable(tbl);
+  ret = mdbCreateTable(tbl);
+  ret = mdbFreeTable(tbl);
+  ret = mdbCloseDatabase(db);
+
   ret = mdbOpenDatabase(&db, "test.mrdb");
-  ret = mdbLoadTable(db, &tbl, ".COLUMNS");
+  ret = mdbLoadTable(db, &tbl, "STUDENTI");
   ret = mdbFreeTable(tbl);
   ret = mdbCloseDatabase(db);
 
