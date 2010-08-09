@@ -115,7 +115,7 @@ struct mdbBtreeTraversal
 
 /* MastersDB data type */
 struct mdbDatatype {
-  char name[12];          /* upper-case name, including null char.          */
+  char name[8];           /* upper-case name, including null char.          */
   byte header;            /* length of header information (0 if not used)   */
   byte size;              /* size of the value, 0 for varying-size types    */
   CompareKeysPtr compare; /* pointer to comparison function                 */

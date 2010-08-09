@@ -90,9 +90,9 @@ using namespace MDB;
 //  }
 //  printf("-----------------------------\n");
 //}
-
-int main(int argc, char **argv)
-{
+//
+//int main(int argc, char **argv)
+//{
 //  uint32 i = 0;
 //  char* buffer = (char*) malloc(128);
 //  char searchResult[5];
@@ -227,6 +227,9 @@ int main(int argc, char **argv)
 //  free(t);
 //  return 0;
 
+int main(int argc, char **argv)
+{
+
   mdbDatabase *db;
   mdbTable *tbl;
 
@@ -236,13 +239,6 @@ int main(int argc, char **argv)
   ret = mdbLoadTable(db, &tbl, ".COLUMNS");
   ret = mdbFreeTable(tbl);
   ret = mdbCloseDatabase(db);
-
-  return 0;
-
-//  int result = mdbOpenDatabase(&db, "test.mrdb");
-//  MQLParser *p = new MQLParser(db);
-//  p->mapMetadata();
-//  return result;
 
   return 0;
 }

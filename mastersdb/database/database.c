@@ -40,6 +40,7 @@
  *  Added mdbLoadTable function.
  *  Re-factoring of the mdbDatatype structure.
  *  Added mdbFreeTable function.
+ *  Implemented mdbCreateTable function.
  */
 
 #include "database.h"
@@ -76,42 +77,17 @@ void mdbInitializeTypes(mdbDatabase *db)
   /* initialize the data types array */
   db->datatypes = (mdbDatatype*)calloc(MDB_TYPE_COUNT, sizeof(mdbDatatype));
 
-  db->datatypes[0] = (mdbDatatype){ "....INT-8",  0, sizeof(byte),   &memcmp};
-  *((uint32*)db->datatypes[0].name) = strlen(db->datatypes[0].name + 4);
+  db->datatypes[0] = (mdbDatatype){ "INT-8",  0, sizeof(byte),   &memcmp};
 
-  db->datatypes[1] = (mdbDatatype){ "....INT-16", 0, sizeof(uint16), &memcmp};
-  *((uint32*)db->datatypes[1].name) = strlen(db->datatypes[1].name + 4);
+  db->datatypes[1] = (mdbDatatype){ "INT-16", 0, sizeof(uint16), &memcmp};
 
-  db->datatypes[2] = (mdbDatatype){ "....INT-32", 0, sizeof(uint32), &memcmp};
-  *((uint32*)db->datatypes[2].name) = strlen(db->datatypes[2].name + 4);
+  db->datatypes[2] = (mdbDatatype){ "INT-32", 0, sizeof(uint32), &memcmp};
 
-  db->datatypes[3] = (mdbDatatype){ "....FLOAT" , 0, sizeof(float),
+  db->datatypes[3] = (mdbDatatype){ "FLOAT" , 0, sizeof(float),
     &mdbCompareFloat};
-  *((uint32*)db->datatypes[3].name) = strlen(db->datatypes[3].name + 4);
 
-  db->datatypes[4] = (mdbDatatype){ "....STRING", 4, sizeof(byte),
+  db->datatypes[4] = (mdbDatatype){ "STRING", 4, sizeof(byte),
     (CompareKeysPtr)&strncmp};
-  *((uint32*)db->datatypes[4].name) = strlen(db->datatypes[4].name + 4);
-}
-
-mdbDatatype *mdbFindType(mdbDatabase* db, const char* key)
-{
-  uint32 len_key = *((uint32*)key);
-  uint32 len_type;
-  uint8 i;
-
-  for (i=0; i < MDB_TYPE_COUNT; i++)
-  {
-    len_type = *((uint32*)db->datatypes[i].name);
-    if (len_key < len_type) len_type = len_key;
-    if (strncmp(key + 4, db->datatypes[i].name + 4, len_type) == 0)
-    {
-      return &(db->datatypes[i]);
-    }
-  }
-
-  /* STRING is default */
-  return &(db->datatypes[4]);
 }
 
 /* creates the system tables and writes them to a file */
@@ -191,31 +167,25 @@ void mdbCreateSystemTables(mdbDatabase *db)
   col = &db->tables->columns[0];
   strcpy(col->id + 4, ".TABLES000");
   strcpy(col->name + 4, "NAME");
-  strcpy(col->type + 4, "STRING");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 55L; col->indexed = 0;
+  col->type = 4; col->length = 55L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->tables->columns[1];
   strcpy(col->id + 4, ".TABLES001");
   strcpy(col->name + 4, "NUM_COLUMNS");
-  strcpy(col->type + 4, "INT-8");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 0L; col->indexed = 0;
+  col->type = 0; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->tables->columns[2];
   strcpy(col->id + 4, ".TABLES002");
   strcpy(col->name + 4, "B-TREE");
-  strcpy(col->type + 4, "INT-32");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 0L; col->indexed = 0;
+  col->type = 2; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   /* --------- .COLUMNS columns ---------- */
@@ -224,51 +194,41 @@ void mdbCreateSystemTables(mdbDatabase *db)
   col = &db->columns->columns[0];
   strcpy(col->id + 4, ".COLUMNS000");
   strcpy(col->name + 4, "ID");
-  strcpy(col->type + 4, "STRING");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 60L; col->indexed = 0;
+  col->type = 4; col->length = 60L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->columns->columns[1];
   strcpy(col->id + 4, ".COLUMNS001");
-  strcpy(col->name + 4, "DATATYPE");
-  strcpy(col->type + 4, "STRING");
+  strcpy(col->name + 4, "NAME");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 8L; col->indexed = 0;
+  col->type = 4; col->length = 54L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->columns->columns[2];
   strcpy(col->id + 4, ".COLUMNS002");
-  strcpy(col->name + 4, "NAME");
-  strcpy(col->type + 4, "STRING");
+  strcpy(col->name + 4, "DATATYPE");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 43L; col->indexed = 0;
+  col->type = 0; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->columns->columns[3];
   strcpy(col->id + 4, ".COLUMNS003");
   strcpy(col->name + 4, "INDEXED");
-  strcpy(col->type + 4, "INT-8");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 0L; col->indexed = 0;
+  col->type = 0; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->columns->columns[4];
   strcpy(col->id + 4, ".COLUMNS004");
   strcpy(col->name + 4, "LENGTH");
-  strcpy(col->type + 4, "INT-32");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 0L; col->indexed = 0;
+  col->type = 2; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   /* --------- .INDEXES columns ---------- */
@@ -277,21 +237,17 @@ void mdbCreateSystemTables(mdbDatabase *db)
   col = &db->indexes->columns[0];
   strcpy(col->id + 4, ".INDEXES000");
   strcpy(col->name + 4, "ID");
-  strcpy(col->type + 4, "STRING");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 58L; col->indexed = 0;
+  col->type = 4; col->length = 60L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
   col = &db->indexes->columns[1];
   strcpy(col->id + 4, ".INDEXES001");
   strcpy(col->name + 4, "B-TREE");
-  strcpy(col->type + 4, "INT-32");
   *((uint32*)col->id) = strlen(col->id + 4);
   *((uint32*)col->name) = strlen(col->name + 4);
-  *((uint32*)col->type) = strlen(col->type + 4);
-  col->length = 0L; col->indexed = 0;
+  col->type = 2; col->length = 0L; col->indexed = 0;
   mdbBtreeInsert((char*)col, db->columns->T);
 
 }
@@ -505,8 +461,10 @@ int mdbCloseDatabase(mdbDatabase *db)
 }
 
 /* Creates a table and stores its B-tree and root node into the database */
-int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree)
+int mdbCreateTable(mdbTable *t)
 {
+
+
   return MDB_DATABASE_SUCCESS;
 }
 
@@ -549,7 +507,7 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
     l_t->db = db;
 
     /* set the appropriate key data type */
-    T->key_type = mdbFindType(db, l_t->columns[0].type);
+    T->key_type = &(db->datatypes[l_t->columns[0].type]);
 
     /* load the table's B-tree root node */
     mdbBtreeAllocateNode(&T->root,T);

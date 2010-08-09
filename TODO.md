@@ -59,8 +59,8 @@ Finished
       COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
       (#)Identifier  | STRING | 60     | 64   | Name of the column
-      Type           | STRING | 8      | 12   | Name of the data type
-      Name           | STRING | 43     | 47   | Name of the column
+      Name           | STRING | 54     | 58   | Name of the column
+      Type           | INT-8  | N/A    | 1    | Column data type
       Indexed        | INT-8  | N/A    | 1    | Column is indexed
       Length         | INT-32 | N/A    | 4    | Maximum data length
       -----------------------------------------------------------------

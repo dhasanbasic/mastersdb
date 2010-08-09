@@ -41,6 +41,7 @@
  *  Added mdbLoadTable function.
  *  Added mdbFreeTable function.
  *  Made mdbAllocateTable publicly visible.
+ *  Implemented mdbCreateTable function.
  */
 
 #ifndef DATABASE_H_INCLUDED
@@ -73,7 +74,7 @@ int mdbAllocateTable(mdbTable **table);
 int mdbFreeTable(mdbTable *t);
 
 /* Creates a table and stores its B-tree and root node into the database */
-int mdbCreateTable(mdbDatabase *db, mdbTable *t, mdbBtree *tree);
+int mdbCreateTable(mdbTable *t);
 
 /* Loads the meta data, B-tree descriptor and root node of a table */
 int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name);
@@ -134,8 +135,8 @@ struct mdbTable
 struct mdbColumn
 {
   char id[64];                  /* Field identifier (table_name + N)*/
-  char type[12];                /* Data type name                   */
-  char name[47];                /* field name                       */
+  char name[58];                /* Data type name                   */
+  byte type;                    /* field name                       */
   byte indexed;                 /* >0 = The field is indexed        */
   uint32 length;                /* max. length of the field value   */
 };
