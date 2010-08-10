@@ -5,7 +5,8 @@
 
 Active development
 ------------------
-  * design and implement an SQL Engine/Parser
+  * design and implement a virtual machine for the SQL Parser/Engine
+  * design and implement an SQL Parser/Engine
   
 Pending
 -------
