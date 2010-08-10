@@ -1,9 +1,7 @@
-#include <stdio.h>
-#include <malloc.h>
 
-#include "mastersdb.h"
-
-using namespace MDB;
+extern "C" {
+  #include "mastersdb.h"
+}
 
 //#define BTREE_T             5
 //#define BTREE_RECORD_SIZE   5

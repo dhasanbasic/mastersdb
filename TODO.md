@@ -5,7 +5,6 @@
 
 Active development
 ------------------
-  * implement table specific functions (mdbCreateTable, mdbLoadTable)
   * design and implement an SQL Engine/Parser
   
 Pending
@@ -76,11 +75,17 @@ Finished
       - Record size: 68 bytes
 
   * implement mdbCreateDatabase for creating an empty MastersDB database  
+
   * implement mdbOpenDatabase for loading database meta data into memory
+
   * implement mdbCloseDatabase for freeing used resources
+
   * re-factoring of whole database
+
   * ensure that the mdbBtree* functions are aware of the data type of the
     primary key
+  
+  * implement table specific functions (mdbCreateTable, mdbLoadTable)
 
 Optimizations
 -------------

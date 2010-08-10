@@ -28,7 +28,7 @@
 
 // needed to mix C and C++ code
 extern "C" {
-  #include "../database/database.h"
+  #include "../mastersdb.h"
 }
 
 #include <cstdio>
