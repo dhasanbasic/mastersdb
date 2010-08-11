@@ -46,7 +46,7 @@ namespace MDB
 #define MVI_OP_MASK     0xFC
 #define MVI_DATA_MASK   0x03
 
-#define MVI_OPCODE(b)     (b>>3) & MVI_OP_MASK
+#define MVI_OPCODE(b)     (b & MVI_OP_MASK)>>2
 #define MVI_DATA(b1,b2)   (((uint16_t)(b1 & MVI_DATA_MASK))<<8) + b2
 
 #define MVI_ENCODE(i,d)   (i<<2) + (((uint8_t)(d>>8)) & MVI_DATA_MASK)
@@ -66,32 +66,19 @@ public:
      */
     PUSH,   // push value DATA to stack
     POP,    // pop value from stack and store it in memory[DATA]
-
     /*
      * Table operations
      */
     ADDTBL, // ADD TABLE
-            //   Allocates a new mdbTable structure, with name stored in
-            //   memory[DATA] and number of columns on top of the stack.
-
     ADDCOL, // ADD COLUMN
-            //   Adds the mdbColumn structure from memory[DATA] to current
-            //   mdbTable structure.
-
     CRTBL,  // CREATE TABLE
-            //   Creates the current table.
-
     LDTBL,  // LOAD TABLE
-            //   Loads the table with name stored in memory[DATA].
-
+    USETBL, // USE TABLE
     /*
      * Record (B-tree) operations
      */
     NEXTRC, // NEXT RECORD
-            //   Loads the next record of the table in memory[DATA].
-
     NEWRC,  // NEW RECORD
-            //   Allocates a new record based table in memory[DATA].
   };
 
   // A virtual table
@@ -100,6 +87,7 @@ public:
     void *table;      // mdbTable* (used for storing table meta-data)
     char *record;     // record storage (used for storing the current record)
     void *traversal;  // mdbBtreeTraversal* (used for traversing the B-tree)
+    uint8_t cp;       // column pointer
   };
 
   // The MastersDB Query Language result
@@ -128,7 +116,7 @@ private:
 
   // table-specific memory
   mdbVirtualTable tables[MDB_VM_TABLES_SIZE];
-  uint8_t tp;                 // table pointer (next free table memory)
+  uint8_t tp;                 // current (virtual) table pointer
 
   mdbQueryResult result;      // MQL result memory
 
@@ -139,27 +127,56 @@ private:
 
   // Resets the MastersDB virtual machine
   void Reset();
-
-  // Resets the results
   void ClearResult();
 
 public:
-  MastersDBVM();
+  MastersDBVM(void *db);
 
-  // VM operations
+  void AddInstruction(uint8_t opcode, uint16_t data)
+  {
+    bytecode[cp++] = MVI_ENCODE(opcode,data);
+    bytecode[cp++] = (uint8_t)data;
+  };
+
+  void Store(char* data, uint16_t ptr)
+  {
+    memory[ptr] = data;
+  };
+
   void Decode();
-  void AddInstruction(uint8_t opcode, uint16_t data);
-  void Store(char* data, uint16_t);
 
   // Stack operations
-  void Push();
-  void Pop();
+
+  /*
+   * Pushes value DATA to stack
+   */
+  void Push()
+  {
+    stack[sp++] = data;
+  }
+
+  /*
+   * Pops value from stack and stores it in memory[DATA]
+   */
+  void Pop()
+  {
+    memory[data] = (char*)(new uint16_t);
+    *((uint16_t*)memory[data]) = stack[--sp];
+  }
 
   // Table operations
   void AddTable();
   void AddColumn();
   void CreateTable();
   void LoadTable();
+
+  /*
+   * Sets the value of the current table to DATA.
+   */
+  void UseTable()
+  {
+    tp = (uint8_t)data;
+  }
 
   // Record (B-tree) operations
   void NextRecord();
