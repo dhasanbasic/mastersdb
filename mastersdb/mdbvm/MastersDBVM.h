@@ -22,6 +22,9 @@
  * ----------------
  * 10.08.2010
  *  Initial version of file.
+ * 12.08.2010
+ *  Added the HALT instruction.
+ *  Added the Execute method.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -79,6 +82,10 @@ public:
      */
     NEXTRC, // NEXT RECORD
     NEWRC,  // NEW RECORD
+    /*
+     * VM Control operations
+     */
+    HALT
   };
 
   // A virtual table
@@ -145,6 +152,14 @@ public:
 
   void Decode();
 
+  void Execute()
+  {
+    do {
+      Decode();
+    }
+    while (opcode != MastersDBVM::HALT);
+  }
+
   // Stack operations
 
   /*
@@ -152,7 +167,7 @@ public:
    */
   void Push()
   {
-    stack[sp++] = data;
+    stack[sp++] = *((uint16_t*)memory[data]);
   }
 
   /*

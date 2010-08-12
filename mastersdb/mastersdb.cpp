@@ -1,4 +1,48 @@
 
+//#include "mdbql/Parser.h"
+//
+//int main(int argc, char **argv)
+//{
+//  mdbDatabase *db;
+//  mdbTable *tbl;
+//  Scanner *s;
+//  Parser *p;
+//
+//  MastersDBVM *VM;
+//  int ret;
+//
+//  const char *query =
+//      "CREATE TABLE Studenti(\n"
+//         "Ime STRING(20),"
+//         "Prezime STRING(50)"
+//      ");";
+//
+//  s = new Scanner((byte*)query, strlen(query));
+//  p = new Parser(s);
+//
+//  // creates a new MastersDB database
+//  ret = mdbCreateDatabase(&db, "test.mrdb");
+//  VM = new MastersDBVM(db);
+//  p->setVM(VM);
+//
+//  // parses and executes the MQL query
+//  p->Parse();
+//  VM->Execute();
+//
+//  ret = mdbCloseDatabase(db);
+//
+//  delete s;
+//  delete p;
+//  delete VM;
+//
+//  ret = mdbOpenDatabase(&db, "test.mrdb");
+//  ret = mdbLoadTable(db, &tbl, "Studenti");
+//  ret = mdbFreeTable(tbl);
+//  ret = mdbCloseDatabase(db);
+//
+//  return 0;
+//}
+
 extern "C" {
   #include "mastersdb.h"
 }
@@ -6,6 +50,69 @@ extern "C" {
 #include "mdbvm/MastersDBVM.h"
 
 using namespace MDB;
+
+int main(int argc, char **argv)
+{
+
+  mdbDatabase *db;
+  mdbTable *tbl;
+  MastersDBVM *VM;
+  int ret;
+
+  // Table meta data
+
+  char *name = new char[12];
+  strcpy(name + 4, "STUDENTI");
+  *((uint32*)name) = strlen("STUDENTI");
+
+  mdbColumn *col1 = new mdbColumn;
+  mdbColumn *col2 = new mdbColumn;
+
+  strcpy(col1->name + 4, "IME");
+  *((uint32*)col1->name) = strlen("IME");
+  col1->indexed = 0;
+  col1->length = 20L;
+  col1->type = 4;
+
+  strcpy(col2->name + 4, "PREZIME");
+  *((uint32*)col2->name) = strlen("PREZIME");
+  col2->indexed = 0;
+  col2->length = 30L;
+  col2->type = 4;
+
+  // DB and VM operations
+
+  ret = mdbCreateDatabase(&db, "test.mrdb");
+
+  VM = new MastersDBVM(db);
+  VM->Store(name, 0);
+  VM->Store((char*)col1, 1);
+  VM->Store((char*)col2, 2);
+
+  VM->AddInstruction(MastersDBVM::PUSH, 2);
+  VM->AddInstruction(MastersDBVM::ADDTBL, 0);
+  VM->AddInstruction(MastersDBVM::ADDCOL, 1);
+  VM->AddInstruction(MastersDBVM::ADDCOL, 2);
+  VM->AddInstruction(MastersDBVM::CRTBL, 0);
+
+  VM->Decode();
+  VM->Decode();
+  VM->Decode();
+  VM->Decode();
+  VM->Decode();
+
+  delete VM;
+
+  ret = mdbCloseDatabase(db);
+
+  ret = mdbOpenDatabase(&db, "test.mrdb");
+  ret = mdbLoadTable(db, &tbl, "STUDENTI");
+  ret = mdbFreeTable(tbl);
+  ret = mdbCloseDatabase(db);
+
+
+  return 0;
+}
 
 //#define BTREE_T             5
 //#define BTREE_RECORD_SIZE   5
@@ -228,66 +335,4 @@ using namespace MDB;
 //
 //  free(t);
 //  return 0;
-
-int main(int argc, char **argv)
-{
-
-  mdbDatabase *db;
-  mdbTable *tbl;
-  MastersDBVM *VM;
-  int ret;
-
-  // Table meta data
-
-  char *name = new char[12];
-  strcpy(name + 4, "STUDENTI");
-  *((uint32*)name) = strlen("STUDENTI");
-
-  mdbColumn *col1 = new mdbColumn;
-  mdbColumn *col2 = new mdbColumn;
-
-  strcpy(col1->name + 4, "IME");
-  *((uint32*)col1->name) = strlen("IME");
-  col1->indexed = 0;
-  col1->length = 20L;
-  col1->type = 4;
-
-  strcpy(col2->name + 4, "PREZIME");
-  *((uint32*)col2->name) = strlen("PREZIME");
-  col2->indexed = 0;
-  col2->length = 30L;
-  col2->type = 4;
-
-  // DB and VM operations
-
-  ret = mdbCreateDatabase(&db, "test.mrdb");
-
-  VM = new MastersDBVM(db);
-  VM->Store(name, 0);
-  VM->Store((char*)col1, 1);
-  VM->Store((char*)col2, 2);
-
-  VM->AddInstruction(MastersDBVM::PUSH, 2);
-  VM->AddInstruction(MastersDBVM::ADDTBL, 0);
-  VM->AddInstruction(MastersDBVM::ADDCOL, 1);
-  VM->AddInstruction(MastersDBVM::ADDCOL, 2);
-  VM->AddInstruction(MastersDBVM::CRTBL, 0);
-
-  VM->Decode();
-  VM->Decode();
-  VM->Decode();
-  VM->Decode();
-  VM->Decode();
-
-  delete VM;
-
-  ret = mdbCloseDatabase(db);
-
-  ret = mdbOpenDatabase(&db, "test.mrdb");
-  ret = mdbLoadTable(db, &tbl, "STUDENTI");
-  ret = mdbFreeTable(tbl);
-  ret = mdbCloseDatabase(db);
-
-
-  return 0;
-}
+//  }

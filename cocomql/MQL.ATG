@@ -22,56 +22,147 @@
  * ----------------
  * 22.07.2010
  *  Initial version of file.
+ * 12.08.2010
+ *  Added rules for CREATE TABLE statement
  */
 
-#include "MQLTypes.h"
+extern "C" {
+  #include "../mastersdb.h"
+}
+
+#include "../mdbvm/MastersDBVM.h"
+
+#include <string>
 
 using namespace MDB;
+using namespace std;
 
 COMPILER MQL
 
-  MQLStatement* stmt;
-  
+static const uint32 BUFFER_SIZE = 1024;
+char buf[BUFFER_SIZE];
+MastersDBVM *VM;
+
+uint16 dp;
+uint16 tp;
+
+string* TokenToString()
+{
+  wcstombs(buf, t->val, BUFFER_SIZE);
+  return new string(buf);
+}
+
+void setVM (MastersDBVM *vm)
+{
+  VM = vm;
+}
+
 /* ignores case */
 IGNORECASE
 
 /* defines the character sets */
 CHARACTERS
-  letter		  = 'A' .. 'Z' + 'a' .. 'z'.
-  digit			  = "0123456789".
-  char            = ANY - '"' - '\"' - '\r' - '\n'.
+  letter		    = 'A' .. 'Z' + 'a' .. 'z'.
+  digit			    = "0123456789".
+  string            = ANY - '\''.
 
 /* defines the tokens */
 TOKENS
-  MQLIdentifier   = letter {letter | digit}.
-  MQLNumber	      = digit {digit}.
-  MQLString       = '"' {char} '"' | '\'' {char} '\''.
-  MQLOperator     = '=' | '<' | '>' | "<=" | ">=".
+  MQLIdentifier     = letter {letter}.
+  MQLNumber	        = digit {digit}.
+  MQLOperator       = '=' | '<' | '>' | "<=" | ">=".
+/*
+  MQLString         = string {string | "\\'"}.
+*/
 
 /* defines the comments */
 COMMENTS FROM "/*" TO "*/" NESTED
 
-IGNORE '\t'
+IGNORE "\t\r\n"
 
 /* defines the productions */
 PRODUCTIONS
 
-MQLType =
-  "INT-8"                         (. printf("TYPE: INT-8\n"); .)
-  | "INT-16"                      (. printf("TYPE: INT-16\n"); .)
-  | "INT-32"                      (. printf("TYPE: INT-32\n"); .)
-  | "FLOAT"                       (. printf("TYPE: FLOAT\n"); .)
-  | "CHAR"                        (. printf("TYPE: CHAR\n"); .)
-  | "UTF-8"                       (. printf("TYPE: UTF-8\n"); .).
+MQLDatatype<mdbColumn *c> =
 
-MQLAttribute =
-  MQLIdentifier MQLType '(' MQLNumber ')'.
+    "INT-8"      (. c->type = 0; .)
+  | "INT-16"     (. c->type = 1; .)
+  | "INT-32"     (. c->type = 2; .)
+  | "FLOAT"      (. c->type = 3; .)
+  | "STRING"     (. c->type = 4; .).
 
-MQLAttributes =
-  MQLAttribute "PRIMARY" "KEY" {',' MQLAttribute }.
+MQLAttribute<mdbColumn* &c> =  (. c = new mdbColumn;                 .) 
+                               (. string *s;                         .)
 
+  MQLIdentifier            (. s = TokenToString();                         .)
+                           (. *((uint32*)c->name) = s->length();           .)
+                           (. strcpy(c->name + 4, s->c_str());             .)
+                           (. delete s;                                    .)
+                           
+  MQLDatatype<c>           (. c->length = 0;                               .)
+  
+  {
+  '('
+  MQLNumber                (. s = TokenToString();                         .)
+                           (. c->length = atoi(s->c_str());                .)
+                           (. delete s;                                    .)
+  ')'
+  }.
+
+MQLAttributes<uint16 &n> = (. mdbColumn *c;                                .)
+                           (. n = 0;                                       .)
+                           
+  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+                           (. VM->Store((char*)c, dp++);                   .)
+                           (. n++;                                         .)
+                           
+  {                        (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+  ',' MQLAttribute<c>         
+                           (. VM->Store((char*)c, dp++);                   .)
+                           (. n++;                                         .)
+  }.
+
+MQLCreateTable =           (. string *s;       .)
+                           (. char *name;      .)
+                           (. uint16* data;    .)
+                           (. uint16 num_cols; .)
+                           (. uint16 ncp;      .)
+                           (. dp = 0;          .)
+                           (. tp = 0;          .)
+  "CREATE" "TABLE"
+  
+  MQLIdentifier            (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  						   (. s = TokenToString();                         .)
+                           (. name = new char[s->length() + 4];            .)
+                           (. *((uint32*)name) = s->length();              .)
+                           (. strcpy(name + 4, s->c_str());                .)
+                           (. delete s;                                    .)
+                           (. ncp = dp++;                                  .)
+                           (. VM->AddInstruction(MastersDBVM::PUSH, ncp);  .)
+                           (. VM->AddInstruction(MastersDBVM::ADDTBL, dp); .)
+                           (. VM->Store(name, dp++);                       .)
+                           
+  '('                      (. num_cols = 0;                                .)
+  MQLAttributes<num_cols>            
+                           (. data = new uint16;                           .)
+                           (. *data = num_cols;                            .)
+                           (. VM->Store((char*)data, ncp);                 .)
+  ')'                      
+                           (. VM->AddInstruction(MastersDBVM::CRTBL, tp);  .).
+
+MQL =
+  MQLCreateTable
+  ';'                      (. VM->AddInstruction(MastersDBVM::HALT, 0);    .).
+
+END MQL.
+
+/* ********************** NOT YET IMPLEMENTED *************************** */
+/* ********************** NOT YET IMPLEMENTED *************************** */
+/* ********************** NOT YET IMPLEMENTED *************************** */
+
+/*
 MQLValue =
-  MQLNumber | MQLString.
+  MQLNumber | '\'' MQLString '\''.
 
 MQLValues =
    MQLValue {',' MQLValue}.
@@ -107,5 +198,4 @@ MQLInsert =
   "INSERT" "INTO" MQLIdentifier '(' MQLColumns ')' "VALUES" '(' MQLValues ')'.
   
 MQL = (MQLCreate | MQLSelect | MQLInsert) ';'.
-
-END MQL.
+*/

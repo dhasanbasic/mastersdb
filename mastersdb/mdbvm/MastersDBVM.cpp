@@ -24,6 +24,7 @@
  *  Initial version of file.
  * 12.08.2010
  *  Implemented CREATE TABLE specific VM instructions: ADDTBL, ADDCOL, CRTTBL.
+ *  Added the HALT instruction.
  */
 
 #include "MastersDBVM.h"
@@ -122,6 +123,8 @@ void MastersDBVM::Decode()
     // Record (B-tree) operations
     case NEXTRC:  NextRecord(); break;
     case NEWRC:   NewRecord(); break;
+    // VM control operations
+    case HALT:    Reset(); break;
     default:
       break;
   }
