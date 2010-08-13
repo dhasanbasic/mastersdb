@@ -25,6 +25,8 @@
  * 12.08.2010
  *  Implemented CREATE TABLE specific VM instructions: ADDTBL, ADDCOL, CRTTBL.
  *  Added the HALT instruction.
+ * 13.08.2010
+ *  Implemented the INSERT INTO specific VM instruction: ADDVAL, INSTBL.
  */
 
 #include "MastersDBVM.h"
@@ -117,9 +119,11 @@ void MastersDBVM::Decode()
     // Table operations
     case ADDTBL:  AddTable(); break;
     case ADDCOL:  AddColumn(); break;
+    case ADDVAL:  AddValue(); break;
     case CRTBL:   CreateTable(); break;
     case LDTBL:   LoadTable(); break;
     case USETBL:  UseTable(); break;
+    case INSTBL:  InsertIntoTable(); break;
     // Record (B-tree) operations
     case NEXTRC:  NextRecord(); break;
     case NEWRC:   NewRecord(); break;
@@ -171,6 +175,37 @@ void MastersDBVM::AddColumn()
 }
 
 /*
+ * Adds the value from memory[DATA] to the current virtual table.
+ */
+void MastersDBVM::AddValue()
+{
+  mdbTable *tbl = (mdbTable*)tables[tp].table;
+  mdbColumn *col = tbl->columns + tables[tp].cp++;
+  mdbDatatype *type = ((mdbDatabase*)db)->datatypes + col->type;
+  uint32 size;
+
+  if (type->header > 0)
+  {
+    size = *((uint32*)memory[data]) * type->size + type->header;
+    // TODO: Raise error if size > length
+    memcpy(tables[tp].rp, memory[data], size);
+    tables[tp].rp += col->length + type->header;
+  }
+  else
+  {
+    memcpy(tables[tp].rp, memory[data], type->size);
+    tables[tp].rp += type->size;
+  }
+
+  // if this was the last column, go back to the first
+  if (tables[tp].cp == *(tbl->num_columns))
+  {
+    tables[tp].rp = tables[tp].record;
+    tables[tp].cp = 0;
+  }
+}
+
+/*
  * Creates the current virtual table.
  */
 void MastersDBVM::CreateTable()
@@ -185,8 +220,24 @@ void MastersDBVM::CreateTable()
  */
 void MastersDBVM::LoadTable()
 {
-
+  int ret;
+  mdbTable **t = (mdbTable**)&tables[tp].table;
+  ret = mdbLoadTable((mdbDatabase*)db, t, memory[data]);
+  // allocates the record storage
+  tables[tp].record = new char[(*t)->T->meta.record_size];
+  tables[tp].rp = tables[tp].record;
 }
+
+/*
+ * Inserts the record of the current virtual table.
+ */
+void MastersDBVM::InsertIntoTable()
+{
+  int ret;
+  mdbTable *t = (mdbTable*)tables[tp].table;
+  ret = mdbBtreeInsert(tables[tp].record, t->T);
+}
+
 
 /*
  * Loads the next record of the current virtual table.

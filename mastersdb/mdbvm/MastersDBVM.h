@@ -25,6 +25,8 @@
  * 12.08.2010
  *  Added the HALT instruction.
  *  Added the Execute method.
+ * 13.08.2010
+ *  Added the ADDVAL and INSTBL instructions.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -74,9 +76,11 @@ public:
      */
     ADDTBL, // ADD TABLE
     ADDCOL, // ADD COLUMN
+    ADDVAL, // ADD VALUE
     CRTBL,  // CREATE TABLE
     LDTBL,  // LOAD TABLE
     USETBL, // USE TABLE
+    INSTBL, // INSERT INTO TABLE
     /*
      * Record (B-tree) operations
      */
@@ -95,6 +99,7 @@ public:
     char *record;     // record storage (used for storing the current record)
     void *traversal;  // mdbBtreeTraversal* (used for traversing the B-tree)
     uint8_t cp;       // column pointer
+    char *rp;         // record pointer
   };
 
   // The MastersDB Query Language result
@@ -182,8 +187,10 @@ public:
   // Table operations
   void AddTable();
   void AddColumn();
+  void AddValue();
   void CreateTable();
   void LoadTable();
+  void InsertIntoTable();
 
   /*
    * Sets the value of the current table to DATA.
