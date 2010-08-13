@@ -5,8 +5,8 @@
 
 Active development
 ------------------
-  * design and implement a virtual machine for the SQL Parser/Engine
-  * design and implement an SQL Parser/Engine
+  * implement DESC
+  * implement SELECT
   
 Pending
 -------
@@ -87,6 +87,14 @@ Finished
     primary key
   
   * implement table specific functions (mdbCreateTable, mdbLoadTable)
+  
+  * design a virtual machine for the SQL Parser/Engine
+  
+  * design an SQL Parser/Engine
+  
+  * implement CREATE TABLE
+  
+  * implement INSERT INTO
 
 Optimizations
 -------------

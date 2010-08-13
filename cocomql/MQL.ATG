@@ -23,7 +23,9 @@
  * 22.07.2010
  *  Initial version of file.
  * 12.08.2010
- *  Added rules for CREATE TABLE statement
+ *  Added rules for CREATE TABLE statement.
+ * 13.08.2010
+ *  Added rules for INSERT INTO statement.
  */
 
 extern "C" {
@@ -62,67 +64,44 @@ IGNORECASE
 
 /* defines the character sets */
 CHARACTERS
-  letter		    = 'A' .. 'Z' + 'a' .. 'z'.
-  digit			    = "0123456789".
-  string            = ANY - '\''.
+  white             = '\u0009' .. '\u000d' + '\u0020'.
+  qstr              = ANY - '\\' - '\"'.
+  astr              = ANY - '\\' - '\''.
+  digit             = "0123456789".
+  operator          = "<=>".
+  special           = "ĐČĆŠŽđčćšž" + "ÄÖÜäöü".
+  letter            = 'A' .. 'Z' + 'a' .. 'z' + special.
 
 /* defines the tokens */
 TOKENS
-  MQLIdentifier     = letter {letter}.
-  MQLNumber	        = digit {digit}.
-  MQLOperator       = '=' | '<' | '>' | "<=" | ">=".
-/*
-  MQLString         = string {string | "\\'"}.
-*/
+  NUMBER	        = digit {digit}.
+  IDENTIFIER        = letter {letter}.  
+  STRING            = '\"' { qstr | '\\' '\'' } '\"' |
+                      '\'' { astr | '\\' '\"' } '\''.
+  OPERATOR          = operator | "<=" | ">=" | "<>".
 
 /* defines the comments */
-COMMENTS FROM "/*" TO "*/" NESTED
+COMMENTS FROM "/*" TO "*/"
 
-IGNORE "\t\r\n"
+IGNORE '\r' + '\n' + '\t'
 
 /* defines the productions */
 PRODUCTIONS
 
-MQLDatatype<mdbColumn *c> =
+/*
+ * MastersDB Query Language
+ */
 
-    "INT-8"      (. c->type = 0; .)
-  | "INT-16"     (. c->type = 1; .)
-  | "INT-32"     (. c->type = 2; .)
-  | "FLOAT"      (. c->type = 3; .)
-  | "STRING"     (. c->type = 4; .).
+MQL =
+  ( MQLCreate
+  | MQLInsert )
+  ';'                      (. VM->AddInstruction(MastersDBVM::HALT, 0);    .).
 
-MQLAttribute<mdbColumn* &c> =  (. c = new mdbColumn;                 .) 
-                               (. string *s;                         .)
+/*
+ * CREATE TABLE
+ */
 
-  MQLIdentifier            (. s = TokenToString();                         .)
-                           (. *((uint32*)c->name) = s->length();           .)
-                           (. strcpy(c->name + 4, s->c_str());             .)
-                           (. delete s;                                    .)
-                           
-  MQLDatatype<c>           (. c->length = 0;                               .)
-  
-  {
-  '('
-  MQLNumber                (. s = TokenToString();                         .)
-                           (. c->length = atoi(s->c_str());                .)
-                           (. delete s;                                    .)
-  ')'
-  }.
-
-MQLAttributes<uint16 &n> = (. mdbColumn *c;                                .)
-                           (. n = 0;                                       .)
-                           
-  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
-                           (. VM->Store((char*)c, dp++);                   .)
-                           (. n++;                                         .)
-                           
-  {                        (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
-  ',' MQLAttribute<c>         
-                           (. VM->Store((char*)c, dp++);                   .)
-                           (. n++;                                         .)
-  }.
-
-MQLCreateTable =           (. string *s;       .)
+MQLCreate =                (. string *s;       .)
                            (. char *name;      .)
                            (. uint16* data;    .)
                            (. uint16 num_cols; .)
@@ -131,7 +110,7 @@ MQLCreateTable =           (. string *s;       .)
                            (. tp = 0;          .)
   "CREATE" "TABLE"
   
-  MQLIdentifier            (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
   						   (. s = TokenToString();                         .)
                            (. name = new char[s->length() + 4];            .)
                            (. *((uint32*)name) = s->length();              .)
@@ -147,12 +126,106 @@ MQLCreateTable =           (. string *s;       .)
                            (. data = new uint16;                           .)
                            (. *data = num_cols;                            .)
                            (. VM->Store((char*)data, ncp);                 .)
-  ')'                      
+  ')'
                            (. VM->AddInstruction(MastersDBVM::CRTBL, tp);  .).
 
-MQL =
-  MQLCreateTable
-  ';'                      (. VM->AddInstruction(MastersDBVM::HALT, 0);    .).
+/*
+ * MQL attributes
+ */
+
+MQLAttributes<uint16 &n> = (. mdbColumn *c;                                .)
+                           (. n = 0;                                       .)
+                           
+  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+                           (. VM->Store((char*)c, dp++);                   .)
+                           (. n++;                                         .)
+                           
+  {                        (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+  ',' MQLAttribute<c>         
+                           (. VM->Store((char*)c, dp++);                   .)
+                           (. n++;                                         .)
+  }.
+
+/*
+ * MQL attribute
+ */
+
+MQLAttribute<mdbColumn* &c> =  (. c = new mdbColumn;                 .) 
+                               (. string *s;                         .)
+
+  IDENTIFIER               (. s = TokenToString();                         .)
+                           (. *((uint32*)c->name) = s->length();           .)
+                           (. strcpy(c->name + 4, s->c_str());             .)
+                           (. delete s;                                    .)
+                           
+  MQLDatatype<c>           (. c->length = 0;                               .)
+  
+  {
+  '('
+      NUMBER               (. s = TokenToString();                         .)
+                           (. c->length = atoi(s->c_str());                .)
+                           (. delete s;                                    .)
+  ')'
+  }.
+
+/*
+ * MQL data type
+ */
+
+MQLDatatype<mdbColumn *c> =
+
+    "INT-8"      (. c->type = 0; .)
+  | "INT-16"     (. c->type = 1; .)
+  | "INT-32"     (. c->type = 2; .)
+  | "FLOAT"      (. c->type = 3; .)
+  | "STRING"     (. c->type = 4; .).
+
+/*
+ * INSERT INTO
+ */
+
+MQLInsert =                (. string *s;       .)
+                           (. char *name;      .)
+                           (. dp = 0;          .)
+                           (. tp = 0;          .)
+  "INSERT" "INTO"
+
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  						   (. s = TokenToString();                         .)
+                           (. name = new char[s->length() + 4];            .)
+                           (. *((uint32*)name) = s->length();              .)
+                           (. strcpy(name + 4, s->c_str());                .)
+                           (. delete s;                                    .)
+                           (. VM->AddInstruction(MastersDBVM::LDTBL, dp);  .)
+                           (. VM->Store(name, dp++);                       .)
+  "VALUES"
+  '(' MQLValues ')'
+                           (. VM->AddInstruction(MastersDBVM::INSTBL, tp); .).
+
+/*
+ * MQLValues
+ */
+
+MQLValues = MQLValue { ',' MQLValue }.
+
+/*
+ * MQLValue
+ */
+MQLValue =                 (. string *s;                                   .)
+                           (. char *data;                                  .)
+  (
+    NUMBER                 (. s = TokenToString();                         .)
+                           (. data = (char*)(new uint32);                  .)
+                           (. *data = atoi(s->c_str());                    .)
+  |
+    STRING                 (. s = TokenToString();                         .)
+                           (. data = new char[s->length() + 4];            .)
+                           (. *((uint32*)data) = s->length() - 2;          .)
+                           (. strncpy(data+4,s->c_str()+1,s->length()-2);  .)
+  )
+                           (. VM->AddInstruction(MastersDBVM::ADDVAL, dp); .)
+                           (. VM->Store(data, dp++);                       .)
+                           (. delete s;                                    .).
 
 END MQL.
 

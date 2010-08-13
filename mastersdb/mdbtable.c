@@ -23,6 +23,8 @@
  * 10.08.2010
  *  Initial version of file.
  *  Moved table-specific code from database.c.
+ * 13.08.2010
+ *  mdbLoadTable re-factoring (they name argument is now the key).
  */
 
 #include "mastersdb.h"
@@ -255,6 +257,7 @@ int mdbCreateTable(mdbTable *t)
 
   ret = mdbBtreeCreate(&(t->T), 0L, len, 0L);
   ret = mdbAllocateNode(&(t->T->root), t->T);
+  *(t->T->root->is_leaf) = 1L;
 
   /* saves the B-tree descriptor and root node */
   fseek(t->db->file, 0L, SEEK_END);
@@ -284,6 +287,7 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
 {
   char key[64];
   int ret;
+  uint32 len;
   uint8 c;
   mdbTable *l_t;
   mdbBtree *T;
@@ -293,19 +297,20 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
   l_t = *t;
 
   /* load the table meta data */
-  strcpy(key + 4, name);
-  *((uint32*)key) = strlen(key + 4);
-  ret = mdbBtreeSearch(key, l_t->data, db->tables->T);
+  ret = mdbBtreeSearch(name, l_t->data, db->tables->T);
 
   if (ret == MDB_BTREE_SEARCH_FOUND)
   {
     /* load the table columns meta data */
     l_t->columns = (mdbColumn*)calloc(*(l_t->num_columns), sizeof(mdbColumn));
 
+    len = *((uint32*)l_t->name);
+    strncpy(key + 4, l_t->name + 4, len);
+    *((uint32*)key) = len + 3;
+
     for (c=0; c < *(l_t->num_columns); c++)
     {
-      sprintf(key + 4, "%s%03u%c", name, c, '\0');
-      *((uint32*)key) = strlen(key + 4);
+      sprintf(key + 4 + *((uint32*)l_t->name), "%03u%c", c, '\0');
       ret = mdbBtreeSearch(key, (char*)&(l_t->columns[c]), db->columns->T);
     }
 
@@ -315,6 +320,7 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
     ret = mdbBtreeCreate(&T,meta.order,meta.record_size,meta.key_position);
 
     /* set the appropriate key data type */
+    T->meta.root_position = meta.root_position;
     T->key_type = &(db->datatypes[l_t->columns[0].type]);
 
     /* load the table's B-tree root node */
