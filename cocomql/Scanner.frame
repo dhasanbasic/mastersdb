@@ -684,7 +684,9 @@ int UTF8Buffer::Read() {
 }
 
 Scanner::Scanner(const unsigned char* buf, int len) {
-	buffer = new Buffer(buf, len);
+    Buffer *b = new Buffer(buf, len);
+	buffer = new UTF8Buffer(b);
+	delete b;
 	Init();
 }
 
@@ -696,12 +698,16 @@ Scanner::Scanner(const wchar_t* fileName) {
 		exit(1);
 	}
 	coco_string_delete(chFileName);
-	buffer = new Buffer(stream, false);
+    Buffer *b = new Buffer(stream, false);
+	buffer = new UTF8Buffer(b);
+	delete b;
 	Init();
 }
 
 Scanner::Scanner(FILE* s) {
-	buffer = new Buffer(s, true);
+	Buffer *b = new Buffer(s, true);
+	buffer = new UTF8Buffer(b);
+	delete b;	
 	Init();
 }
 
