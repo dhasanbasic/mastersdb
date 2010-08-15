@@ -191,6 +191,10 @@ int mdbCreateTable(mdbTable *t)
 
   for (c = 0; c < t->rec.columns; c++)
   {
+    if (c == 0)
+    {
+      t->columns[c].indexed = 1;
+    }
     strncpy(t->columns[c].id + 4, t->rec.name + 4, len);
     sprintf(t->columns[c].id + 4 + len, "%03u", c);
     *((uint32*)t->columns[c].id) = len + 3;

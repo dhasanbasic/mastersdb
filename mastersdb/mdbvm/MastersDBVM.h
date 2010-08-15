@@ -27,16 +27,23 @@
  *  Added the Execute method.
  * 13.08.2010
  *  Added the ADDVAL and INSTBL instructions.
+ * 15.08.2010
+ *  mdbQueryResult re-factoring.
+ *  Added the PUSHOF, NEWCOL, NEWREC instructions.
+ *  Added the DSCTBL instruction.
  */
 
 #ifndef MASTERSDBVM_H_
 #define MASTERSDBVM_H_
 
 #include <stdint.h>
+#include <vector>
 
 extern "C" {
   #include "../mastersdb.h"
 }
+
+using namespace std;
 
 namespace MDB
 {
@@ -46,7 +53,7 @@ namespace MDB
  *
  * IIII IIDD DDDD DDDD
  *
- * I - instruction bits (64 instruction possible)
+ * I - instruction bits (64 instructions possible)
  * D - data bits (max. value is 1024)
  */
 
@@ -56,25 +63,26 @@ namespace MDB
 #define MVI_DATA_MASK   0x03
 
 #define MVI_OPCODE(b)     (b & MVI_OP_MASK)>>2
-#define MVI_DATA(b1,b2)   (((uint16_t)(b1 & MVI_DATA_MASK))<<8) + b2
+#define MVI_DATA(b1,b2)   (((uint16)(b1 & MVI_DATA_MASK))<<8) + b2
 
-#define MVI_ENCODE(i,d)   (i<<2) + (((uint8_t)(d>>8)) & MVI_DATA_MASK)
+#define MVI_ENCODE(i,d)   (i<<2) + (((uint8)(d>>8)) & MVI_DATA_MASK)
 
 class MastersDBVM
 {
 private:
-  static const uint16_t MDB_VM_BYTECODE_SIZE = 1024;
-  static const uint16_t MDB_VM_MEMORY_SIZE = 1024;
-  static const uint16_t MDB_VM_STACK_SIZE = 64;
-  static const uint16_t MDB_VM_TABLES_SIZE = 8;
+  static const uint16 MDB_VM_BYTECODE_SIZE = 1024;
+  static const uint16 MDB_VM_MEMORY_SIZE = 1024;
+  static const uint16 MDB_VM_STACK_SIZE = 64;
+  static const uint16 MDB_VM_TABLES_SIZE = 8;
 
 public:
   enum mdbInstruction {
     /*
      * Stack operations
      */
-    PUSH,   // push value DATA to stack
-    POP,    // pop value from stack and store it in memory[DATA]
+    PUSH,   // PUSH
+    POP,    // POP
+    PUSHOB, // PUSH OFFSET BYTE
     /*
      * Table operations
      */
@@ -85,6 +93,12 @@ public:
     LDTBL,  // LOAD TABLE
     USETBL, // USE TABLE
     INSTBL, // INSERT INTO TABLE
+    DSCTBL, // DESCRIBE TABLE
+    /*
+     * Result operations
+     */
+    NEWCOL, // NEW RESULT COLUMN
+    NEWREC, // NEW RESULT RECORD
     /*
      * Record (B-tree) operations
      */
@@ -102,44 +116,44 @@ public:
     mdbTable *table;              // used for storing table meta-data
     char *record;                 // used for storing the current record
     mdbBtreeTraversal *traversal; // used for traversing the B-tree
-    uint8_t cp;                   // column pointer
+    uint8 cp;                     // column pointer
     char *rp;                     // record pointer
   };
 
   // The MastersDB Query Language result
   struct mdbQueryResult
   {
-    mdbColumnRecord *columns;   // columns array
-    uint8_t num_columns;  // number of columns
-    char *records;        // used for storing the query results
-    uint32_t num_records; // number of records
-    uint32_t record_size; // size of a record
+    vector<mdbColumnRecord*> *columns;  // columns array
+    vector<char*> *records;             // records array
+    uint32 record_size;                 // record size
+    uint8 cp;                           // column pointer
+    char *rp;                           // record pointer
   };
 
 private:
 
   // MastersDB VM program
-  uint8_t bytecode[MDB_VM_BYTECODE_SIZE];
-  uint16_t ip;                // instruction pointer (current MVI)
-  uint16_t cp;                // byte code pointer (when adding instruction)
+  uint8 bytecode[MDB_VM_BYTECODE_SIZE];
+  uint16 ip;                  // instruction pointer (current MVI)
+  uint16 cp;                  // byte code pointer (when adding instruction)
 
   // MastersDB VM memory
   char *memory[MDB_VM_MEMORY_SIZE];
 
   // MastersDB VM stack
-  uint16_t stack[MDB_VM_STACK_SIZE];
-  uint16_t sp;                // stack pointer (top of the stack)
+  uint16 stack[MDB_VM_STACK_SIZE];
+  uint16 sp;                  // stack pointer (top of the stack)
 
   // table-specific memory
   mdbVirtualTable tables[MDB_VM_TABLES_SIZE];
-  uint8_t tp;                 // current (virtual) table pointer
+  uint8 tp;                   // current (virtual) table pointer
 
   mdbQueryResult result;      // MQL result memory
 
   mdbDatabase *db;            // MastersDB database (mdbDatabase*)
 
-  uint8_t opcode;             // current decoded operation
-  uint16_t data;              // DATA part of the current decoded operation
+  uint8 opcode;               // INSTRUCTION part current decoded operation
+  uint16 data;                // DATA part of the current decoded operation
 
   // Resets the MastersDB virtual machine
   void Reset();
@@ -148,13 +162,13 @@ private:
 public:
   MastersDBVM(mdbDatabase *db);
 
-  void AddInstruction(uint8_t opcode, uint16_t data)
+  void AddInstruction(uint8 opcode, uint16 data)
   {
     bytecode[cp++] = MVI_ENCODE(opcode,data);
-    bytecode[cp++] = (uint8_t)data;
+    bytecode[cp++] = (uint8)data;
   };
 
-  void Store(char* data, uint16_t ptr)
+  void Store(char* data, uint16 ptr)
   {
     memory[ptr] = data;
   };
@@ -163,6 +177,7 @@ public:
 
   void Execute()
   {
+    ClearResult();
     do {
       Decode();
     }
@@ -172,11 +187,11 @@ public:
   // Stack operations
 
   /*
-   * Pushes value DATA to stack
+   * Pushes value memory[DATA] to stack
    */
   void Push()
   {
-    stack[sp++] = *((uint16_t*)memory[data]);
+    stack[sp++] = *((uint16*)memory[data]);
   }
 
   /*
@@ -184,8 +199,30 @@ public:
    */
   void Pop()
   {
-    memory[data] = (char*)(new uint16_t);
-    *((uint16_t*)memory[data]) = stack[--sp];
+    memory[data] = (char*)(new uint16);
+    *((uint16*)memory[data]) = stack[--sp];
+  }
+
+  /*
+   * Pops a byte and stores it at (memory[DATA] + offset).
+   *
+   * Parameters:
+   * -----------
+   *   DATA           - source
+   *   stack[sp-1]    - offset
+   */
+  void PushOffsetByte()
+  {
+    uint32 offset = _pop();
+    stack[sp++] = *((byte*)(memory[data] + offset));
+  }
+
+  /*
+   * Silent pop - pops a value from stack and returns it.
+   */
+  uint16 _pop()
+  {
+    return stack[--sp];
   }
 
   // Table operations
@@ -195,14 +232,19 @@ public:
   void CreateTable();
   void LoadTable();
   void InsertIntoTable();
+  void DescribeTable();
 
   /*
    * Sets the value of the current table to DATA.
    */
   void UseTable()
   {
-    tp = (uint8_t)data;
+    tp = (uint8)data;
   }
+
+  // Result operations
+  void NewResultColumn();
+  void NewResultRecord();
 
   // Record (B-tree) operations
   void NextRecord();

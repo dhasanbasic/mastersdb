@@ -74,6 +74,11 @@ string* TokenToString()
   return new string(buf);
 }
 
+uint32 getOffset(const void* src, const void* dest)
+{
+  return (uint32)((char*)dest - (char*)src);
+}
+
 void setVM (MastersDBVM *vm)
 {
   VM = vm;
@@ -89,6 +94,7 @@ void setVM (MastersDBVM *vm)
 	void MQL();
 	void MQLCreate();
 	void MQLInsert();
+	void MQLDescribe();
 	void MQLAttributes(uint16 &n);
 	void MQLAttribute(mdbColumnRecord* &c);
 	void MQLDatatype(mdbColumnRecord *c);

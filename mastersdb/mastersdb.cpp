@@ -4,7 +4,6 @@
 int main(int argc, char **argv)
 {
   mdbDatabase *db;
-  mdbTable *tbl;
   Scanner *s;
   Parser *p;
 
@@ -17,43 +16,41 @@ int main(int argc, char **argv)
   const char *MQL_INSERT =
       "INSERT INTO Studenti VALUES(\"Dinko\",\"Hasanbasic\");";
 
+  const char *MQL_DESCRIBE =
+      "DESCRIBE Studenti;";
+
   // creates a new MastersDB database and virtual machine
   ret = mdbCreateDatabase(&db, "test.mrdb");
   VM = new MastersDBVM(db);
 
   // CREATE
-
   s = new Scanner((byte*)MQL_CREATE, strlen(MQL_CREATE));
   p = new Parser(s);
   p->setVM(VM);
-
-  // parses and executes the MQL query
   p->Parse();
   VM->Execute();
-
   delete s;
   delete p;
 
   // INSERT
-
   s = new Scanner((byte*)MQL_INSERT, strlen(MQL_INSERT));
   p = new Parser(s);
   p->setVM(VM);
-
-  // parses and executes the MQL query
   p->Parse();
   VM->Execute();
+  delete s;
+  delete p;
 
+  // DESCRIBE
+  s = new Scanner((byte*)MQL_DESCRIBE, strlen(MQL_DESCRIBE));
+  p = new Parser(s);
+  p->setVM(VM);
+  p->Parse();
+  VM->Execute();
   delete s;
   delete p;
 
   delete VM;
-
-  ret = mdbCloseDatabase(db);
-
-  ret = mdbOpenDatabase(&db, "test.mrdb");
-  ret = mdbLoadTable(db, &tbl, "\x008\0\0\0Studenti");
-  ret = mdbFreeTable(tbl);
   ret = mdbCloseDatabase(db);
 
   return 0;

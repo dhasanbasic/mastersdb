@@ -66,7 +66,9 @@ void Parser::MQL() {
 			MQLCreate();
 		} else if (la->kind == 16) {
 			MQLInsert();
-		} else SynErr(20);
+		} else if (la->kind == 19 || la->kind == 20) {
+			MQLDescribe();
+		} else SynErr(22);
 		Expect(5);
 		VM->AddInstruction(MastersDBVM::HALT, 0);    
 }
@@ -125,6 +127,28 @@ void Parser::MQLInsert() {
 		VM->AddInstruction(MastersDBVM::INSTBL, tp); 
 }
 
+void Parser::MQLDescribe() {
+		string *s;       
+		char *name;      
+		dp = 0;          
+		tp = 0;          
+		if (la->kind == 19) {
+			Get();
+		} else if (la->kind == 20) {
+			Get();
+		} else SynErr(23);
+		Expect(2);
+		VM->AddInstruction(MastersDBVM::USETBL, tp); 
+		s = TokenToString();                         
+		name = new char[s->length() + 4];            
+		*((uint32*)name) = s->length();              
+		strcpy(name + 4, s->c_str());                
+		delete s;                                    
+		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
+		VM->Store(name, dp++);                       
+		VM->AddInstruction(MastersDBVM::DSCTBL, tp); 
+}
+
 void Parser::MQLAttributes(uint16 &n) {
 		mdbColumnRecord *c;                          
 		n = 0;                                       
@@ -177,7 +201,7 @@ void Parser::MQLDatatype(mdbColumnRecord *c) {
 		} else if (la->kind == 15) {
 			Get();
 			c->type = 4; 
-		} else SynErr(21);
+		} else SynErr(24);
 }
 
 void Parser::MQLValues() {
@@ -202,7 +226,7 @@ void Parser::MQLValue() {
 			data = new char[s->length() + 4];            
 			*((uint32*)data) = s->length() - 2;          
 			strncpy(data+4,s->c_str()+1,s->length()-2);  
-		} else SynErr(22);
+		} else SynErr(25);
 		VM->AddInstruction(MastersDBVM::ADDVAL, dp); 
 		VM->Store(data, dp++);                       
 		delete s;                                    
@@ -221,7 +245,7 @@ void Parser::Parse() {
 }
 
 Parser::Parser(Scanner *scanner) {
-	maxT = 19;
+	maxT = 21;
 
 	dummyToken = NULL;
 	t = la = NULL;
@@ -235,8 +259,8 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[1][21] = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x}
+	static bool set[1][23] = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x}
 	};
 
 
@@ -275,10 +299,13 @@ void Errors::SynErr(int line, int col, int n) {
 			case 16: s = coco_string_create(L"\"insert\" expected"); break;
 			case 17: s = coco_string_create(L"\"into\" expected"); break;
 			case 18: s = coco_string_create(L"\"values\" expected"); break;
-			case 19: s = coco_string_create(L"??? expected"); break;
-			case 20: s = coco_string_create(L"invalid MQL"); break;
-			case 21: s = coco_string_create(L"invalid MQLDatatype"); break;
-			case 22: s = coco_string_create(L"invalid MQLValue"); break;
+			case 19: s = coco_string_create(L"\"desc\" expected"); break;
+			case 20: s = coco_string_create(L"\"describe\" expected"); break;
+			case 21: s = coco_string_create(L"??? expected"); break;
+			case 22: s = coco_string_create(L"invalid MQL"); break;
+			case 23: s = coco_string_create(L"invalid MQLDescribe"); break;
+			case 24: s = coco_string_create(L"invalid MQLDatatype"); break;
+			case 25: s = coco_string_create(L"invalid MQLValue"); break;
 
 		default:
 		{

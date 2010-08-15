@@ -28,6 +28,9 @@
  *  Added rules for INSERT INTO statement.
  * 14.08.2010
  *  Changed the special character set.
+ * 15.08.2010
+ *  Added the getOffset method.
+ *  Added rules for DESC statement.
  */
 
 extern "C" {
@@ -54,6 +57,11 @@ string* TokenToString()
 {
   wcstombs(buf, t->val, BUFFER_SIZE);
   return new string(buf);
+}
+
+uint32 getOffset(const void* src, const void* dest)
+{
+  return (uint32)((char*)dest - (char*)src);
 }
 
 void setVM (MastersDBVM *vm)
@@ -106,7 +114,8 @@ PRODUCTIONS
 
 MQL =
   ( MQLCreate
-  | MQLInsert )
+  | MQLInsert
+  | MQLDescribe )
   ';'                      (. VM->AddInstruction(MastersDBVM::HALT, 0);    .).
 
 /*
@@ -238,6 +247,27 @@ MQLValue =                 (. string *s;                                   .)
                            (. VM->AddInstruction(MastersDBVM::ADDVAL, dp); .)
                            (. VM->Store(data, dp++);                       .)
                            (. delete s;                                    .).
+
+/*
+ * DESC
+ */
+
+MQLDescribe =              (. string *s;       .)
+                           (. char *name;      .)
+                           (. dp = 0;          .)
+                           (. tp = 0;          .)
+  ("DESC" | "DESCRIBE")
+
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  						   (. s = TokenToString();                         .)
+                           (. name = new char[s->length() + 4];            .)
+                           (. *((uint32*)name) = s->length();              .)
+                           (. strcpy(name + 4, s->c_str());                .)
+                           (. delete s;                                    .)
+                           (. VM->AddInstruction(MastersDBVM::LDTBL, dp);  .)
+                           (. VM->Store(name, dp++);                       .)
+                           (. VM->AddInstruction(MastersDBVM::DSCTBL, tp); .).
+
 
 END MQL.
 

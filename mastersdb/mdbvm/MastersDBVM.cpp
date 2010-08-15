@@ -27,6 +27,8 @@
  *  Added the HALT instruction.
  * 13.08.2010
  *  Implemented the INSERT INTO specific VM instruction: ADDVAL, INSTBL.
+ * 15.08.2010
+ *  Implemented the DESCRIBE specific instruction DSCTBL.
  */
 
 #include "MastersDBVM.h"
@@ -52,7 +54,8 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
   {
     memset(&tables[i], 0, sizeof(mdbVirtualTable));
   }
-
+  result.columns = new vector<mdbColumnRecord*>;
+  result.records = new vector<char*>;
   this->db = db;
 }
 
@@ -100,7 +103,8 @@ void MastersDBVM::Reset()
 
 MastersDBVM::~MastersDBVM()
 {
-  Reset();
+  delete result.columns;
+  delete result.records;
 }
 
 void MastersDBVM::Decode()
@@ -112,6 +116,7 @@ void MastersDBVM::Decode()
     // Stack operations
     case PUSH:    Push(); break;
     case POP:     Pop(); break;
+    case PUSHOB:  PushOffsetByte(); break;
     // Table operations
     case ADDTBL:  AddTable(); break;
     case ADDCOL:  AddColumn(); break;
@@ -120,6 +125,10 @@ void MastersDBVM::Decode()
     case LDTBL:   LoadTable(); break;
     case USETBL:  UseTable(); break;
     case INSTBL:  InsertIntoTable(); break;
+    case DSCTBL:  DescribeTable(); break;
+    // Result operation
+    case NEWCOL:  NewResultColumn(); break;
+    case NEWREC:  NewResultRecord(); break;
     // Record (B-tree) operations
     case NEXTRC:  NextRecord(); break;
     case NEWRC:   NewRecord(); break;
@@ -129,7 +138,10 @@ void MastersDBVM::Decode()
       break;
   }
 
-  ip += 2;
+  if (opcode != HALT)
+  {
+    ip += 2;
+  }
 }
 
 /*
@@ -137,9 +149,20 @@ void MastersDBVM::Decode()
  */
 void MastersDBVM::ClearResult()
 {
-  delete result.columns;
-  delete result.records;
-  memset(&result, 0L, sizeof(mdbQueryResult));
+  uint32 i;
+  for (i = 0; i < result.columns->size(); i++)
+  {
+    delete result.columns->at(i);
+  }
+  for (i = 0; i < result.records->size(); i++)
+  {
+    delete result.records->at(i);
+  }
+  result.columns->clear();
+  result.records->clear();
+  result.record_size = 0;
+  result.rp = NULL;
+  result.cp = 0;
 };
 
 
@@ -233,6 +256,104 @@ void MastersDBVM::InsertIntoTable()
   ret = mdbBtreeInsert(tables[tp].record, tables[tp].table->T);
 }
 
+/*
+ * Returns the structure of a given table as a query result.
+ */
+void MastersDBVM::DescribeTable()
+{
+  static const char* desc_names[4] = { "Name", "Type", "Length", "Indexed" };
+  static const byte desc_types[4] = { 4, 4, 2, 0 };
+  static const uint32 desc_lengths[4] = { 58L, 12L, 0, 0 };
+
+  uint8 r;
+  uint8 c;
+  uint32 len;
+  char *record;
+  char *rp;
+  mdbColumnRecord *col;
+
+  // creates the result columns
+  for (c = 0; c < 4; c++)
+  {
+    col = new mdbColumnRecord;
+    len = strlen(desc_names[c]);
+    strncpy(col->name + 4, desc_names[c], len);
+    *((uint32*)col->name) = len;
+    col->type = desc_types[c];
+    col->length = desc_lengths[c];
+    result.columns->push_back(col);
+  }
+
+  // determine result record size
+  len = 0;
+  for (c = 0; c < 4; c++)
+  {
+    if (db->datatypes[result.columns->at(c)->type].header > 0)
+    {
+      len += result.columns->at(c)->length +
+          db->datatypes[result.columns->at(c)->type].header;
+    }
+    else
+    {
+      len += db->datatypes[result.columns->at(c)->type].size;
+    }
+  }
+
+  result.record_size = len;
+
+  // add the results
+  for (r = 0; r < tables[tp].table->rec.columns; r++)
+  {
+    record = new char[result.record_size];
+    rp = record;
+    col = tables[tp].table->columns + r;
+
+    // insert the column name
+    len = *((uint32*)col->name);
+    memcpy(rp, col->name, len + 4);
+    rp += result.columns->at(0)->length + 4;
+
+    // insert the column data type name
+    len = strlen(db->datatypes[col->type].name);
+    *((uint32*)rp) = len;
+    strncpy(rp + 4, db->datatypes[col->type].name, len);
+    rp += result.columns->at(1)->length + 4;
+
+    // insert the column length information
+    *((uint32*)rp) = col->length;
+    rp += db->datatypes[result.columns->at(2)->type].size;
+
+    // insert the column indexed information
+    *((byte*)rp) = col->indexed;
+
+    result.records->push_back(record);
+  }
+
+}
+
+/*
+ * Creates a new virtual column for the query results, based on:
+ *   column.name = memory[DATA]
+ *   column.type = stack[sp-2];
+ *   column.length = memory[stack[sp-1];
+ */
+void MastersDBVM::NewResultColumn()
+{
+  mdbColumnRecord *c = new mdbColumnRecord;
+  // retrieves the column name
+  uint32 len = *((uint32*)memory[data]);
+  strncpy(c->name + 4, memory[data] + 4, len);
+  *((uint32*)c->name) = len;
+  // retrieves the column length
+  c->length = *((uint32*)memory[_pop()]);
+  // retrieves the column type
+  c->type = (byte)_pop();
+}
+
+void MastersDBVM::NewResultRecord()
+{
+
+}
 
 /*
  * Loads the next record of the current virtual table.
