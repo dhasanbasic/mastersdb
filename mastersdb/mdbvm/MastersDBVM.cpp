@@ -31,14 +31,10 @@
 
 #include "MastersDBVM.h"
 
-extern "C" {
-  #include "../mastersdb.h"
-}
-
 namespace MDB
 {
 
-MastersDBVM::MastersDBVM(void *db)
+MastersDBVM::MastersDBVM(mdbDatabase *db)
 {
   uint16 i;
 
@@ -141,7 +137,7 @@ void MastersDBVM::Decode()
  */
 void MastersDBVM::ClearResult()
 {
-  delete (mdbColumn*)result.columns;
+  delete result.columns;
   delete result.records;
   memset(&result, 0L, sizeof(mdbQueryResult));
 };
@@ -154,13 +150,14 @@ void MastersDBVM::ClearResult()
  */
 void MastersDBVM::AddTable()
 {
-  int ret;
   mdbTable* t;
   uint32 size = *((uint32*)memory[data]) + 4L;
-  ret = mdbAllocateTable(&t, (mdbDatabase*)db);
-  memcpy(t->name, memory[data], size);
-  *(t->num_columns) = (byte)stack[--sp];
-  t->columns = (mdbColumn*)calloc((byte)stack[sp], sizeof(mdbColumn));
+  t = (mdbTable*)malloc(sizeof(mdbTable));
+  t->db = db;
+  memcpy(t->rec.name, memory[data], size);
+  t->rec.columns = (byte)stack[--sp];
+  t->columns =
+      (mdbColumnRecord*)calloc((byte)stack[sp], sizeof(mdbColumnRecord));
   tables[tp].table = t;
 }
 
@@ -171,7 +168,7 @@ void MastersDBVM::AddTable()
 void MastersDBVM::AddColumn()
 {
   mdbTable* t = (mdbTable*)tables[tp].table;
-  memcpy(&t->columns[tables[tp].cp++], memory[data], sizeof(mdbColumn));
+  memcpy(&t->columns[tables[tp].cp++], memory[data], sizeof(mdbColumnRecord));
 }
 
 /*
@@ -180,8 +177,8 @@ void MastersDBVM::AddColumn()
 void MastersDBVM::AddValue()
 {
   mdbTable *tbl = (mdbTable*)tables[tp].table;
-  mdbColumn *col = tbl->columns + tables[tp].cp++;
-  mdbDatatype *type = ((mdbDatabase*)db)->datatypes + col->type;
+  mdbColumnRecord *col = tbl->columns + tables[tp].cp++;
+  mdbDatatype *type = db->datatypes + col->type;
   uint32 size;
 
   if (type->header > 0)
@@ -198,7 +195,7 @@ void MastersDBVM::AddValue()
   }
 
   // if this was the last column, go back to the first
-  if (tables[tp].cp == *(tbl->num_columns))
+  if (tables[tp].cp == tbl->rec.columns)
   {
     tables[tp].rp = tables[tp].record;
     tables[tp].cp = 0;
@@ -221,10 +218,9 @@ void MastersDBVM::CreateTable()
 void MastersDBVM::LoadTable()
 {
   int ret;
-  mdbTable **t = (mdbTable**)&tables[tp].table;
-  ret = mdbLoadTable((mdbDatabase*)db, t, memory[data]);
+  ret = mdbLoadTable(db, &tables[tp].table, memory[data]);
   // allocates the record storage
-  tables[tp].record = new char[(*t)->T->meta.record_size];
+  tables[tp].record = new char[tables[tp].table->T->meta.record_size];
   tables[tp].rp = tables[tp].record;
 }
 
@@ -234,8 +230,7 @@ void MastersDBVM::LoadTable()
 void MastersDBVM::InsertIntoTable()
 {
   int ret;
-  mdbTable *t = (mdbTable*)tables[tp].table;
-  ret = mdbBtreeInsert(tables[tp].record, t->T);
+  ret = mdbBtreeInsert(tables[tp].record, tables[tp].table->T);
 }
 
 

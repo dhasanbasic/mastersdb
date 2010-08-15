@@ -90,8 +90,8 @@ void setVM (MastersDBVM *vm)
 	void MQLCreate();
 	void MQLInsert();
 	void MQLAttributes(uint16 &n);
-	void MQLAttribute(mdbColumn* &c);
-	void MQLDatatype(mdbColumn *c);
+	void MQLAttribute(mdbColumnRecord* &c);
+	void MQLDatatype(mdbColumnRecord *c);
 	void MQLValues();
 	void MQLValue();
 

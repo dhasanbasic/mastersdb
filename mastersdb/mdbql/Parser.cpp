@@ -126,7 +126,7 @@ void Parser::MQLInsert() {
 }
 
 void Parser::MQLAttributes(uint16 &n) {
-		mdbColumn *c;                                
+		mdbColumnRecord *c;                          
 		n = 0;                                       
 		MQLAttribute(c);
 		VM->AddInstruction(MastersDBVM::ADDCOL, dp); 
@@ -141,8 +141,8 @@ void Parser::MQLAttributes(uint16 &n) {
 		}
 }
 
-void Parser::MQLAttribute(mdbColumn* &c) {
-		c = new mdbColumn;                 
+void Parser::MQLAttribute(mdbColumnRecord* &c) {
+		c = new mdbColumnRecord;           
 		string *s;                         
 		Expect(2);
 		s = TokenToString();                         
@@ -161,7 +161,7 @@ void Parser::MQLAttribute(mdbColumn* &c) {
 		}
 }
 
-void Parser::MQLDatatype(mdbColumn *c) {
+void Parser::MQLDatatype(mdbColumnRecord *c) {
 		if (la->kind == 11) {
 			Get();
 			c->type = 0; 

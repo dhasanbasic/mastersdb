@@ -116,19 +116,23 @@ struct mdbDatatype {
 };
 
 /* MastersDB table record */
+struct mdbTableRecord
+{
+  char name[59];                /* Table name                       */
+  byte columns;                 /* Number of columns                */
+  uint32 btree;                 /* Pointer to B-tree in the file    */
+};
+
 struct mdbTable
 {
-  char data[64];                /* the table record                 */
-  char *name;                   /* Table name                       */
-  byte *num_columns;            /* Number of fields                 */
-  uint32* position;             /* Pointer to B-tree in the file    */
-  mdbColumn *columns;           /* Field information                */
+  mdbTableRecord rec;           /* the table record                 */
+  mdbColumnRecord *columns;     /* Field information                */
   mdbBtree* T;                  /* Table's B-tree                   */
   mdbDatabase *db;              /* Pointer to database              */
 };
 
 /* MastersDB field record */
-struct mdbColumn
+struct mdbColumnRecord
 {
   char id[64];                  /* Field identifier (table_name + N)*/
   char name[58];                /* Data type name                   */
@@ -138,7 +142,7 @@ struct mdbColumn
 };
 
 /* MastersDB index record */
-struct mdbIndex
+struct mdbIndexRecord
 {
   char id[64];                  /* Index identifier (field id)      */
   uint32 btree;                 /* Pointer to B+-tree in the file   */

@@ -375,7 +375,9 @@ int UTF8Buffer::Read() {
 }
 
 Scanner::Scanner(const unsigned char* buf, int len) {
-	buffer = new Buffer(buf, len);
+    Buffer *b = new Buffer(buf, len);
+	buffer = new UTF8Buffer(b);
+	delete b;
 	Init();
 }
 
@@ -387,12 +389,16 @@ Scanner::Scanner(const wchar_t* fileName) {
 		exit(1);
 	}
 	coco_string_delete(chFileName);
-	buffer = new Buffer(stream, false);
+    Buffer *b = new Buffer(stream, false);
+	buffer = new UTF8Buffer(b);
+	delete b;
 	Init();
 }
 
 Scanner::Scanner(FILE* s) {
-	buffer = new Buffer(s, true);
+	Buffer *b = new Buffer(s, true);
+	buffer = new UTF8Buffer(b);
+	delete b;	
 	Init();
 }
 
@@ -417,17 +423,17 @@ void Scanner::Init() {
 	for (i = 48; i <= 57; ++i) start.set(i, 1);
 	for (i = 97; i <= 104; ++i) start.set(i, 2);
 	for (i = 106; i <= 122; ++i) start.set(i, 2);
-	for (i = 132; i <= 132; ++i) start.set(i, 2);
-	for (i = 134; i <= 135; ++i) start.set(i, 2);
-	for (i = 140; i <= 141; ++i) start.set(i, 2);
-	for (i = 144; i <= 145; ++i) start.set(i, 2);
-	for (i = 150; i <= 150; ++i) start.set(i, 2);
-	for (i = 156; i <= 156; ++i) start.set(i, 2);
-	for (i = 160; i <= 161; ++i) start.set(i, 2);
-	for (i = 164; i <= 164; ++i) start.set(i, 2);
-	for (i = 182; i <= 182; ++i) start.set(i, 2);
-	for (i = 188; i <= 190; ++i) start.set(i, 2);
-	for (i = 195; i <= 197; ++i) start.set(i, 2);
+	for (i = 196; i <= 196; ++i) start.set(i, 2);
+	for (i = 214; i <= 214; ++i) start.set(i, 2);
+	for (i = 220; i <= 220; ++i) start.set(i, 2);
+	for (i = 228; i <= 228; ++i) start.set(i, 2);
+	for (i = 246; i <= 246; ++i) start.set(i, 2);
+	for (i = 252; i <= 252; ++i) start.set(i, 2);
+	for (i = 262; i <= 263; ++i) start.set(i, 2);
+	for (i = 268; i <= 269; ++i) start.set(i, 2);
+	for (i = 272; i <= 273; ++i) start.set(i, 2);
+	for (i = 352; i <= 353; ++i) start.set(i, 2);
+	for (i = 381; i <= 382; ++i) start.set(i, 2);
 	start.set(61, 8);
 	start.set(34, 3);
 	start.set(39, 5);
@@ -583,7 +589,7 @@ void Scanner::AppendVal(Token *t) {
 
 Token* Scanner::NextToken() {
 	while (ch == ' ' ||
-			(ch >= 9 && ch <= 10) || ch == 13
+			(ch >= 9 && ch <= 13) || ch == L' '
 	) NextCh();
 	if ((ch == L'/' && Comment0())) return NextToken();
 	t = CreateToken();
@@ -600,7 +606,7 @@ Token* Scanner::NextToken() {
 			else {t->kind = 1; break;}
 		case 2:
 			case_2:
-			if ((ch >= L'a' && ch <= L'z') || ch == 132 || (ch >= 134 && ch <= 135) || (ch >= 140 && ch <= 141) || (ch >= 144 && ch <= 145) || ch == 150 || ch == 156 || (ch >= 160 && ch <= 161) || ch == 164 || ch == 182 || (ch >= 188 && ch <= 190) || (ch >= 195 && ch <= 197)) {AddCh(); goto case_2;}
+			if ((ch >= L'a' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_2;}
 			else {t->kind = 2; wchar_t *literal = coco_string_create_lower(tval, 0, tlen); t->kind = keywords.get(literal, t->kind); coco_string_delete(literal); break;}
 		case 3:
 			case_3:
@@ -660,17 +666,17 @@ Token* Scanner::NextToken() {
 			case_19:
 			{t->kind = 13; break;}
 		case 20:
-			if ((ch >= L'a' && ch <= L'm') || (ch >= L'o' && ch <= L'z') || ch == 132 || (ch >= 134 && ch <= 135) || (ch >= 140 && ch <= 141) || (ch >= 144 && ch <= 145) || ch == 150 || ch == 156 || (ch >= 160 && ch <= 161) || ch == 164 || ch == 182 || (ch >= 188 && ch <= 190) || (ch >= 195 && ch <= 197)) {AddCh(); goto case_2;}
+			if ((ch >= L'a' && ch <= L'm') || (ch >= L'o' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_2;}
 			else if (ch == L'n') {AddCh(); goto case_21;}
 			else {t->kind = 2; wchar_t *literal = coco_string_create_lower(tval, 0, tlen); t->kind = keywords.get(literal, t->kind); coco_string_delete(literal); break;}
 		case 21:
 			case_21:
-			if ((ch >= L'a' && ch <= L's') || (ch >= L'u' && ch <= L'z') || ch == 132 || (ch >= 134 && ch <= 135) || (ch >= 140 && ch <= 141) || (ch >= 144 && ch <= 145) || ch == 150 || ch == 156 || (ch >= 160 && ch <= 161) || ch == 164 || ch == 182 || (ch >= 188 && ch <= 190) || (ch >= 195 && ch <= 197)) {AddCh(); goto case_2;}
+			if ((ch >= L'a' && ch <= L's') || (ch >= L'u' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_2;}
 			else if (ch == L't') {AddCh(); goto case_22;}
 			else {t->kind = 2; wchar_t *literal = coco_string_create_lower(tval, 0, tlen); t->kind = keywords.get(literal, t->kind); coco_string_delete(literal); break;}
 		case 22:
 			case_22:
-			if ((ch >= L'a' && ch <= L'z') || ch == 132 || (ch >= 134 && ch <= 135) || (ch >= 140 && ch <= 141) || (ch >= 144 && ch <= 145) || ch == 150 || ch == 156 || (ch >= 160 && ch <= 161) || ch == 164 || ch == 182 || (ch >= 188 && ch <= 190) || (ch >= 195 && ch <= 197)) {AddCh(); goto case_2;}
+			if ((ch >= L'a' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_2;}
 			else if (ch == L'-') {AddCh(); goto case_23;}
 			else {t->kind = 2; wchar_t *literal = coco_string_create_lower(tval, 0, tlen); t->kind = keywords.get(literal, t->kind); coco_string_delete(literal); break;}
 		case 23:

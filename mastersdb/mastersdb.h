@@ -64,8 +64,9 @@ typedef struct mdbDatabase mdbDatabase;
 
 /* forward declarations of the table structures */
 typedef struct mdbTable mdbTable;
-typedef struct mdbColumn mdbColumn;
-typedef struct mdbIndex mdbIndex;
+typedef struct mdbTableRecord mdbTableRecord;
+typedef struct mdbColumnRecord mdbColumnRecord;
+typedef struct mdbIndexRecord mdbIndexRecord;
 
 #include "mdbtypes.h"
 
@@ -146,9 +147,6 @@ int mdbCloseDatabase(mdbDatabase *db);
 /* ********************************************************* *
  *    Table related functions
  * ********************************************************* */
-/* Allocates a new mdbTable structure and initializes the internal pointers */
-int mdbAllocateTable(mdbTable **table, mdbDatabase *db);
-
 /* Loads the meta data, B-tree descriptor and root node of a table */
 int mdbFreeTable(mdbTable *t);
 

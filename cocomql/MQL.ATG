@@ -145,7 +145,7 @@ MQLCreate =                (. string *s;       .)
  * MQL attributes
  */
 
-MQLAttributes<uint16 &n> = (. mdbColumn *c;                                .)
+MQLAttributes<uint16 &n> = (. mdbColumnRecord *c;                          .)
                            (. n = 0;                                       .)
                            
   MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
@@ -162,8 +162,8 @@ MQLAttributes<uint16 &n> = (. mdbColumn *c;                                .)
  * MQL attribute
  */
 
-MQLAttribute<mdbColumn* &c> =  (. c = new mdbColumn;                 .) 
-                               (. string *s;                         .)
+MQLAttribute<mdbColumnRecord* &c> =  (. c = new mdbColumnRecord;           .) 
+                                     (. string *s;                         .)
 
   IDENTIFIER               (. s = TokenToString();                         .)
                            (. *((uint32*)c->name) = s->length();           .)
@@ -184,7 +184,7 @@ MQLAttribute<mdbColumn* &c> =  (. c = new mdbColumn;                 .)
  * MQL data type
  */
 
-MQLDatatype<mdbColumn *c> =
+MQLDatatype<mdbColumnRecord *c> =
 
     "INT-8"      (. c->type = 0; .)
   | "INT-16"     (. c->type = 1; .)

@@ -34,6 +34,10 @@
 
 #include <stdint.h>
 
+extern "C" {
+  #include "../mastersdb.h"
+}
+
 namespace MDB
 {
 
@@ -95,17 +99,17 @@ public:
   // A virtual table
   struct mdbVirtualTable
   {
-    void *table;      // mdbTable* (used for storing table meta-data)
-    char *record;     // record storage (used for storing the current record)
-    void *traversal;  // mdbBtreeTraversal* (used for traversing the B-tree)
-    uint8_t cp;       // column pointer
-    char *rp;         // record pointer
+    mdbTable *table;              // used for storing table meta-data
+    char *record;                 // used for storing the current record
+    mdbBtreeTraversal *traversal; // used for traversing the B-tree
+    uint8_t cp;                   // column pointer
+    char *rp;                     // record pointer
   };
 
   // The MastersDB Query Language result
   struct mdbQueryResult
   {
-    void *columns;        // mdbColumn* array
+    mdbColumnRecord *columns;   // columns array
     uint8_t num_columns;  // number of columns
     char *records;        // used for storing the query results
     uint32_t num_records; // number of records
@@ -132,7 +136,7 @@ private:
 
   mdbQueryResult result;      // MQL result memory
 
-  void *db;                   // MastersDB database (mdbDatabase*)
+  mdbDatabase *db;            // MastersDB database (mdbDatabase*)
 
   uint8_t opcode;             // current decoded operation
   uint16_t data;              // DATA part of the current decoded operation
@@ -142,7 +146,7 @@ private:
   void ClearResult();
 
 public:
-  MastersDBVM(void *db);
+  MastersDBVM(mdbDatabase *db);
 
   void AddInstruction(uint8_t opcode, uint16_t data)
   {

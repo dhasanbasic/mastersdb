@@ -89,7 +89,7 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename)
 
     /* positions of the database system tables (B-tree + root node) */
     l_db->tables->T->meta.root_position =
-        *(l_db->indexes->position) + sizeof(mdbBtreeMeta);
+        l_db->indexes->rec.btree + sizeof(mdbBtreeMeta);
 
     l_db->columns->T->meta.root_position =
         l_db->tables->T->meta.root_position + l_db->tables->T->nodeSize;
@@ -159,21 +159,24 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     /* allocates and loads the B-tree of each system table */
 
     /* ------- .TABLES ------- */
-    mdbAllocateTable(&l_db->tables, l_db);
+    l_db->tables = (mdbTable*)malloc(sizeof(mdbTable));
+    l_db->tables->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->key_type = &l_db->datatypes[4];
     l_db->tables->T = T;
 
     /* ------ .COLUMNS ------- */
-    mdbAllocateTable(&l_db->columns, l_db);
+    l_db->columns = (mdbTable*)malloc(sizeof(mdbTable));
+    l_db->columns->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->key_type = &l_db->datatypes[4];
     l_db->columns->T = T;
 
     /* ------ .INDEXES ------- */
-    mdbAllocateTable(&l_db->indexes, l_db);
+    l_db->indexes = (mdbTable*)malloc(sizeof(mdbTable));
+    l_db->indexes->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->key_type = &l_db->datatypes[4];
