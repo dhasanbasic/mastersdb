@@ -31,6 +31,8 @@
  * 15.08.2010
  *  Added the getOffset method.
  *  Added rules for DESC statement.
+ * 16.08.2010
+ *  Added rules for SELECT.
  */
 
 extern "C" {
@@ -38,6 +40,7 @@ extern "C" {
 }
 
 #include "../mdbvm/MastersDBVM.h"
+#include "MQLSelect.h"
 
 #include <string>
 
@@ -49,6 +52,7 @@ COMPILER MQL
 static const uint32 BUFFER_SIZE = 1024;
 char buf[BUFFER_SIZE];
 MastersDBVM *VM;
+MQLSelect *select;
 
 uint16 dp;
 uint16 tp;
@@ -67,6 +71,11 @@ uint32 getOffset(const void* src, const void* dest)
 void setVM (MastersDBVM *vm)
 {
   VM = vm;
+}
+
+void setSelect (MQLSelect *select)
+{
+  this->select = select;
 }
 
 /* ignores case */
@@ -91,11 +100,11 @@ CHARACTERS
   digit             = "0123456789".
   operator          = "<=>".
   letter            = 'A' .. 'Z' + 'a' .. 'z' + special.
-
 /* defines the tokens */
 TOKENS
   NUMBER	        = digit {digit}.
-  IDENTIFIER        = letter {letter}.  
+  IDENTIFIER        = letter {letter}.
+  COLUMN            = letter {letter} '.' letter {letter}.
   STRING            = '\"' { qstr | '\\' '\'' } '\"' |
                       '\'' { astr | '\\' '\"' } '\''.
   OPERATOR          = operator | "<=" | ">=" | "<>".
@@ -113,16 +122,17 @@ PRODUCTIONS
  */
 
 MQL =
-  ( MQLCreate
-  | MQLInsert
-  | MQLDescribe )
+  ( MQLCreateStatement
+  | MQLInsertStatement
+  | MQLDescribeStatement
+  | MQLSelectStatement )
   ';'                      (. VM->AddInstruction(MastersDBVM::HALT, 0);    .).
 
 /*
  * CREATE TABLE
  */
 
-MQLCreate =                (. string *s;       .)
+MQLCreateStatement =       (. string *s;       .)
                            (. char *name;      .)
                            (. uint16* data;    .)
                            (. uint16 num_cols; .)
@@ -205,7 +215,7 @@ MQLDatatype<mdbColumnRecord *c> =
  * INSERT INTO
  */
 
-MQLInsert =                (. string *s;       .)
+MQLInsertStatement =       (. string *s;       .)
                            (. char *name;      .)
                            (. dp = 0;          .)
                            (. tp = 0;          .)
@@ -252,7 +262,7 @@ MQLValue =                 (. string *s;                                   .)
  * DESC
  */
 
-MQLDescribe =              (. string *s;       .)
+MQLDescribeStatement =     (. string *s;       .)
                            (. char *name;      .)
                            (. dp = 0;          .)
                            (. tp = 0;          .)
@@ -268,49 +278,60 @@ MQLDescribe =              (. string *s;       .)
                            (. VM->Store(name, dp++);                       .)
                            (. VM->AddInstruction(MastersDBVM::DSCTBL, tp); .).
 
+/*
+ * SELECT
+ */
 
-END MQL.
+MQLSelectStatement =       (. dp = 0;          .)
+                           (. tp = 0;          .)
+                           (. select->Reset(); .)
 
-/* ********************** NOT YET IMPLEMENTED *************************** */
-/* ********************** NOT YET IMPLEMENTED *************************** */
-/* ********************** NOT YET IMPLEMENTED *************************** */
+  "SELECT" MQLColumns "FROM" MQLTables. /* [WHERE MQLConditions] */
 
 /*
-MQLValue =
-  MQLNumber | '\'' MQLString '\''.
+ * MQLColumns
+ */
+MQLColumns =
+  '*'                      (. select->UseAllColumns();                     .)
+  |
+  MQLColumn {',' MQLColumn}.
 
-MQLValues =
-   MQLValue {',' MQLValue}.
+/*
+ * MQLColumn
+ */
+MQLColumn =                (. string *table = NULL;  .)
+                           (. string *column = NULL; .)
+                           (. string *tmp = NULL;    .)
+                           (. uint32 dot;            .)
 
-MQLColumn<int &id> =
-  MQLIdentifier       (. id = stmt->addColumn(t->val); .).
+  ( COLUMN                 (. tmp = TokenToString();                       .)
+                           (. dot = tmp->find('.');                        .)
+                           (. table = new string(tmp->c_str(),dot);        .)
+                           (. column = new string(tmp->c_str()+dot+1);     .)
+  |  
+    IDENTIFIER             (. column = TokenToString();                    .)
+  )
+                           (. if (select->MapColumn(column, table, dp))    .)
+                           (. {                                            .)
+                           (.   dp++;                                      .)
+                           (. };                                           .)
+                           (. delete table;                                .)
+                           (. delete column;                               .)
+                           (. delete tmp;                                  .).
 
-MQLColumns =          (. int id; .)
-  MQLColumn<id> {',' MQLColumn<id>}.
+/*
+ * MQLTables
+ */
+MQLTables = MQLTable {',' MQLTable}.
 
-MQLExpression =         (. MQLCondition *c = new MQLCondition(); .)
-                                  (. int id;                     .)
-	MQLColumn<id>                 (. c->setLeftOperand(id);      .)
-	MQLOperator                   (. c->setOperation(t->val);    .)
-	(MQLColumn<id>                (. c->setRightOperand(id);     .)
-	| MQLNumber | MQLString)      (. c->setRightOperand(t->val); .)
-	                              (. stmt->addCondition(c);      .).
+/*
+ * MQLTable
+ */
+MQLTable =                 (. string *table = NULL; .)
 
-MQLExpressions =
-  MQLExpression {',' MQLExpression }.
+  IDENTIFIER               (. table = TokenToString();                     .)
+                           (. select->MapTable(table, tp);                 .)
+                           (. tp++;                                        .)
+                           (. delete table;                                .).
 
-MQLCreate =
-  "CREATE" "TABLE" MQLIdentifier '(' MQLAttributes ')'.
-
-MQLSelect =
-  "SELECT"                     (. stmt = new MQLStatement(SELECT); .)
-  ('*'                         (. stmt->addColumn(t->val);         .)
-  | MQLColumns)
-  "FROM" MQLIdentifier         (. stmt->addTable(t->val);          .)
-  "WHERE" MQLExpressions.
-
-MQLInsert =
-  "INSERT" "INTO" MQLIdentifier '(' MQLColumns ')' "VALUES" '(' MQLValues ')'.
-  
-MQL = (MQLCreate | MQLSelect | MQLInsert) ';'.
-*/
+END MQL.

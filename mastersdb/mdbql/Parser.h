@@ -8,6 +8,7 @@ extern "C" {
 }
 
 #include "../mdbvm/MastersDBVM.h"
+#include "MQLSelect.h"
 
 #include <string>
 
@@ -38,8 +39,9 @@ private:
 		_EOF=0,
 		_NUMBER=1,
 		_IDENTIFIER=2,
-		_STRING=3,
-		_OPERATOR=4,
+		_COLUMN=3,
+		_STRING=4,
+		_OPERATOR=5,
 	};
 	int maxT;
 
@@ -64,6 +66,7 @@ public:
 static const uint32 BUFFER_SIZE = 1024;
 char buf[BUFFER_SIZE];
 MastersDBVM *VM;
+MQLSelect *select;
 
 uint16 dp;
 uint16 tp;
@@ -84,6 +87,11 @@ void setVM (MastersDBVM *vm)
   VM = vm;
 }
 
+void setSelect (MQLSelect *select)
+{
+  this->select = select;
+}
+
 /* ignores case */
 
 
@@ -92,14 +100,19 @@ void setVM (MastersDBVM *vm)
 	void SemErr(const wchar_t* msg);
 
 	void MQL();
-	void MQLCreate();
-	void MQLInsert();
-	void MQLDescribe();
+	void MQLCreateStatement();
+	void MQLInsertStatement();
+	void MQLDescribeStatement();
+	void MQLSelectStatement();
 	void MQLAttributes(uint16 &n);
 	void MQLAttribute(mdbColumnRecord* &c);
 	void MQLDatatype(mdbColumnRecord *c);
 	void MQLValues();
 	void MQLValue();
+	void MQLColumns();
+	void MQLTables();
+	void MQLColumn();
+	void MQLTable();
 
 	void Parse();
 

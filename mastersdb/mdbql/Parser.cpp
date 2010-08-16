@@ -62,18 +62,20 @@ bool Parser::WeakSeparator(int n, int syFol, int repFol) {
 }
 
 void Parser::MQL() {
-		if (la->kind == 6) {
-			MQLCreate();
-		} else if (la->kind == 16) {
-			MQLInsert();
-		} else if (la->kind == 19 || la->kind == 20) {
-			MQLDescribe();
-		} else SynErr(22);
-		Expect(5);
+		if (la->kind == 7) {
+			MQLCreateStatement();
+		} else if (la->kind == 17) {
+			MQLInsertStatement();
+		} else if (la->kind == 20 || la->kind == 21) {
+			MQLDescribeStatement();
+		} else if (la->kind == 22) {
+			MQLSelectStatement();
+		} else SynErr(26);
+		Expect(6);
 		VM->AddInstruction(MastersDBVM::HALT, 0);    
 }
 
-void Parser::MQLCreate() {
+void Parser::MQLCreateStatement() {
 		string *s;       
 		char *name;      
 		uint16* data;    
@@ -81,8 +83,8 @@ void Parser::MQLCreate() {
 		uint16 ncp;      
 		dp = 0;          
 		tp = 0;          
-		Expect(6);
 		Expect(7);
+		Expect(8);
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::USETBL, tp); 
 		s = TokenToString();                         
@@ -94,23 +96,23 @@ void Parser::MQLCreate() {
 		VM->AddInstruction(MastersDBVM::PUSH, ncp);  
 		VM->AddInstruction(MastersDBVM::ADDTBL, dp); 
 		VM->Store(name, dp++);                       
-		Expect(8);
+		Expect(9);
 		num_cols = 0;                                
 		MQLAttributes(num_cols);
 		data = new uint16;                           
 		*data = num_cols;                            
 		VM->Store((char*)data, ncp);                 
-		Expect(9);
+		Expect(10);
 		VM->AddInstruction(MastersDBVM::CRTBL, tp);  
 }
 
-void Parser::MQLInsert() {
+void Parser::MQLInsertStatement() {
 		string *s;       
 		char *name;      
 		dp = 0;          
 		tp = 0;          
-		Expect(16);
 		Expect(17);
+		Expect(18);
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::USETBL, tp); 
 		s = TokenToString();                         
@@ -120,23 +122,23 @@ void Parser::MQLInsert() {
 		delete s;                                    
 		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
 		VM->Store(name, dp++);                       
-		Expect(18);
-		Expect(8);
-		MQLValues();
+		Expect(19);
 		Expect(9);
+		MQLValues();
+		Expect(10);
 		VM->AddInstruction(MastersDBVM::INSTBL, tp); 
 }
 
-void Parser::MQLDescribe() {
+void Parser::MQLDescribeStatement() {
 		string *s;       
 		char *name;      
 		dp = 0;          
 		tp = 0;          
-		if (la->kind == 19) {
+		if (la->kind == 20) {
 			Get();
-		} else if (la->kind == 20) {
+		} else if (la->kind == 21) {
 			Get();
-		} else SynErr(23);
+		} else SynErr(27);
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::USETBL, tp); 
 		s = TokenToString();                         
@@ -149,6 +151,16 @@ void Parser::MQLDescribe() {
 		VM->AddInstruction(MastersDBVM::DSCTBL, tp); 
 }
 
+void Parser::MQLSelectStatement() {
+		dp = 0;          
+		tp = 0;          
+		select->Reset(); 
+		Expect(22);
+		MQLColumns();
+		Expect(23);
+		MQLTables();
+}
+
 void Parser::MQLAttributes(uint16 &n) {
 		mdbColumnRecord *c;                          
 		n = 0;                                       
@@ -156,7 +168,7 @@ void Parser::MQLAttributes(uint16 &n) {
 		VM->AddInstruction(MastersDBVM::ADDCOL, dp); 
 		VM->Store((char*)c, dp++);                   
 		n++;                                         
-		while (la->kind == 10) {
+		while (la->kind == 11) {
 			VM->AddInstruction(MastersDBVM::ADDCOL, dp); 
 			Get();
 			MQLAttribute(c);
@@ -175,38 +187,38 @@ void Parser::MQLAttribute(mdbColumnRecord* &c) {
 		delete s;                                    
 		MQLDatatype(c);
 		c->length = 0;                               
-		while (la->kind == 8) {
+		while (la->kind == 9) {
 			Get();
 			Expect(1);
 			s = TokenToString();                         
 			c->length = atoi(s->c_str());                
 			delete s;                                    
-			Expect(9);
+			Expect(10);
 		}
 }
 
 void Parser::MQLDatatype(mdbColumnRecord *c) {
-		if (la->kind == 11) {
+		if (la->kind == 12) {
 			Get();
 			c->type = 0; 
-		} else if (la->kind == 12) {
-			Get();
-			c->type = 1; 
 		} else if (la->kind == 13) {
 			Get();
-			c->type = 2; 
+			c->type = 1; 
 		} else if (la->kind == 14) {
 			Get();
-			c->type = 3; 
+			c->type = 2; 
 		} else if (la->kind == 15) {
 			Get();
+			c->type = 3; 
+		} else if (la->kind == 16) {
+			Get();
 			c->type = 4; 
-		} else SynErr(24);
+		} else SynErr(28);
 }
 
 void Parser::MQLValues() {
 		MQLValue();
-		while (la->kind == 10) {
+		while (la->kind == 11) {
 			Get();
 			MQLValue();
 		}
@@ -220,16 +232,70 @@ void Parser::MQLValue() {
 			s = TokenToString();                         
 			data = (char*)(new uint32);                  
 			*data = atoi(s->c_str());                    
-		} else if (la->kind == 3) {
+		} else if (la->kind == 4) {
 			Get();
 			s = TokenToString();                         
 			data = new char[s->length() + 4];            
 			*((uint32*)data) = s->length() - 2;          
 			strncpy(data+4,s->c_str()+1,s->length()-2);  
-		} else SynErr(25);
+		} else SynErr(29);
 		VM->AddInstruction(MastersDBVM::ADDVAL, dp); 
 		VM->Store(data, dp++);                       
 		delete s;                                    
+}
+
+void Parser::MQLColumns() {
+		if (la->kind == 24) {
+			Get();
+			select->UseAllColumns();                     
+		} else if (la->kind == 2 || la->kind == 3) {
+			MQLColumn();
+			while (la->kind == 11) {
+				Get();
+				MQLColumn();
+			}
+		} else SynErr(30);
+}
+
+void Parser::MQLTables() {
+		MQLTable();
+		while (la->kind == 11) {
+			Get();
+			MQLTable();
+		}
+}
+
+void Parser::MQLColumn() {
+		string *table = NULL;  
+		string *column = NULL; 
+		string *tmp = NULL;    
+		uint32 dot;            
+		if (la->kind == 3) {
+			Get();
+			tmp = TokenToString();                       
+			dot = tmp->find('.');                        
+			table = new string(tmp->c_str(),dot);        
+			column = new string(tmp->c_str()+dot+1);     
+		} else if (la->kind == 2) {
+			Get();
+			column = TokenToString();                    
+		} else SynErr(31);
+		if (select->MapColumn(column, table, dp))    
+		{                                            
+		dp++;                                      
+		};                                           
+		delete table;                                
+		delete column;                               
+		delete tmp;                                  
+}
+
+void Parser::MQLTable() {
+		string *table = NULL; 
+		Expect(2);
+		table = TokenToString();                     
+		select->MapTable(table, tp);                 
+		tp++;                                        
+		delete table;                                
 }
 
 
@@ -245,7 +311,7 @@ void Parser::Parse() {
 }
 
 Parser::Parser(Scanner *scanner) {
-	maxT = 21;
+	maxT = 25;
 
 	dummyToken = NULL;
 	t = la = NULL;
@@ -259,8 +325,8 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[1][23] = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x}
+	static bool set[1][27] = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x}
 	};
 
 
@@ -283,29 +349,35 @@ void Errors::SynErr(int line, int col, int n) {
 			case 0: s = coco_string_create(L"EOF expected"); break;
 			case 1: s = coco_string_create(L"NUMBER expected"); break;
 			case 2: s = coco_string_create(L"IDENTIFIER expected"); break;
-			case 3: s = coco_string_create(L"STRING expected"); break;
-			case 4: s = coco_string_create(L"OPERATOR expected"); break;
-			case 5: s = coco_string_create(L"\";\" expected"); break;
-			case 6: s = coco_string_create(L"\"create\" expected"); break;
-			case 7: s = coco_string_create(L"\"table\" expected"); break;
-			case 8: s = coco_string_create(L"\"(\" expected"); break;
-			case 9: s = coco_string_create(L"\")\" expected"); break;
-			case 10: s = coco_string_create(L"\",\" expected"); break;
-			case 11: s = coco_string_create(L"\"int-8\" expected"); break;
-			case 12: s = coco_string_create(L"\"int-16\" expected"); break;
-			case 13: s = coco_string_create(L"\"int-32\" expected"); break;
-			case 14: s = coco_string_create(L"\"float\" expected"); break;
-			case 15: s = coco_string_create(L"\"string\" expected"); break;
-			case 16: s = coco_string_create(L"\"insert\" expected"); break;
-			case 17: s = coco_string_create(L"\"into\" expected"); break;
-			case 18: s = coco_string_create(L"\"values\" expected"); break;
-			case 19: s = coco_string_create(L"\"desc\" expected"); break;
-			case 20: s = coco_string_create(L"\"describe\" expected"); break;
-			case 21: s = coco_string_create(L"??? expected"); break;
-			case 22: s = coco_string_create(L"invalid MQL"); break;
-			case 23: s = coco_string_create(L"invalid MQLDescribe"); break;
-			case 24: s = coco_string_create(L"invalid MQLDatatype"); break;
-			case 25: s = coco_string_create(L"invalid MQLValue"); break;
+			case 3: s = coco_string_create(L"COLUMN expected"); break;
+			case 4: s = coco_string_create(L"STRING expected"); break;
+			case 5: s = coco_string_create(L"OPERATOR expected"); break;
+			case 6: s = coco_string_create(L"\";\" expected"); break;
+			case 7: s = coco_string_create(L"\"create\" expected"); break;
+			case 8: s = coco_string_create(L"\"table\" expected"); break;
+			case 9: s = coco_string_create(L"\"(\" expected"); break;
+			case 10: s = coco_string_create(L"\")\" expected"); break;
+			case 11: s = coco_string_create(L"\",\" expected"); break;
+			case 12: s = coco_string_create(L"\"int-8\" expected"); break;
+			case 13: s = coco_string_create(L"\"int-16\" expected"); break;
+			case 14: s = coco_string_create(L"\"int-32\" expected"); break;
+			case 15: s = coco_string_create(L"\"float\" expected"); break;
+			case 16: s = coco_string_create(L"\"string\" expected"); break;
+			case 17: s = coco_string_create(L"\"insert\" expected"); break;
+			case 18: s = coco_string_create(L"\"into\" expected"); break;
+			case 19: s = coco_string_create(L"\"values\" expected"); break;
+			case 20: s = coco_string_create(L"\"desc\" expected"); break;
+			case 21: s = coco_string_create(L"\"describe\" expected"); break;
+			case 22: s = coco_string_create(L"\"select\" expected"); break;
+			case 23: s = coco_string_create(L"\"from\" expected"); break;
+			case 24: s = coco_string_create(L"\"*\" expected"); break;
+			case 25: s = coco_string_create(L"??? expected"); break;
+			case 26: s = coco_string_create(L"invalid MQL"); break;
+			case 27: s = coco_string_create(L"invalid MQLDescribeStatement"); break;
+			case 28: s = coco_string_create(L"invalid MQLDatatype"); break;
+			case 29: s = coco_string_create(L"invalid MQLValue"); break;
+			case 30: s = coco_string_create(L"invalid MQLColumns"); break;
+			case 31: s = coco_string_create(L"invalid MQLColumn"); break;
 
 		default:
 		{

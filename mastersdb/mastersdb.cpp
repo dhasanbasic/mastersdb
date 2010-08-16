@@ -3,58 +3,95 @@
 
 int main(int argc, char **argv)
 {
-  mdbDatabase *db;
   Scanner *s;
   Parser *p;
+  uint8 i;
 
   MastersDBVM *VM;
-  int ret;
+  MQLSelect *select;
 
-  const char *MQL_CREATE =
-      "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));";
+  const char *MQL_QUERY[3] = {
+      "SELECT * FROM Studenti;",
+      "SELECT Ime, Prezime, BrIndex FROM Studenti;",
+      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Sefovi.Odjel FROM Zaposleni, Sefovi;"
+  };
 
-  const char *MQL_INSERT =
-      "INSERT INTO Studenti VALUES(\"Dinko\",\"Hasanbasic\");";
+  VM = new MastersDBVM(NULL);
+  select = new MQLSelect();
 
-  const char *MQL_DESCRIBE =
-      "DESCRIBE Studenti;";
+  for (i = 0; i < 3; i++)
+  {
+    s = new Scanner((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
+    p = new Parser(s);
+    p->setVM(VM);
+    p->setSelect(select);
+    p->Parse();
+    printf("QUERY:\n\t%s\n", MQL_QUERY[i]);
+    select->toString();
+    delete s;
+    delete p;
+  }
 
-  // creates a new MastersDB database and virtual machine
-  ret = mdbCreateDatabase(&db, "test.mrdb");
-  VM = new MastersDBVM(db);
-
-  // CREATE
-  s = new Scanner((byte*)MQL_CREATE, strlen(MQL_CREATE));
-  p = new Parser(s);
-  p->setVM(VM);
-  p->Parse();
-  VM->Execute();
-  delete s;
-  delete p;
-
-  // INSERT
-  s = new Scanner((byte*)MQL_INSERT, strlen(MQL_INSERT));
-  p = new Parser(s);
-  p->setVM(VM);
-  p->Parse();
-  VM->Execute();
-  delete s;
-  delete p;
-
-  // DESCRIBE
-  s = new Scanner((byte*)MQL_DESCRIBE, strlen(MQL_DESCRIBE));
-  p = new Parser(s);
-  p->setVM(VM);
-  p->Parse();
-  VM->Execute();
-  delete s;
-  delete p;
-
+  delete select;
   delete VM;
-  ret = mdbCloseDatabase(db);
 
   return 0;
 }
+
+//int main(int argc, char **argv)
+//{
+//  mdbDatabase *db;
+//  Scanner *s;
+//  Parser *p;
+//
+//  MastersDBVM *VM;
+//  int ret;
+//
+//  const char *MQL_CREATE =
+//      "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));";
+//
+//  const char *MQL_INSERT =
+//      "INSERT INTO Studenti VALUES(\"Dinko\",\"Hasanbasic\");";
+//
+//  const char *MQL_DESCRIBE =
+//      "DESCRIBE Studenti;";
+//
+//  // creates a new MastersDB database and virtual machine
+//  ret = mdbCreateDatabase(&db, "test.mrdb");
+//  VM = new MastersDBVM(db);
+//
+//  // CREATE
+//  s = new Scanner((byte*)MQL_CREATE, strlen(MQL_CREATE));
+//  p = new Parser(s);
+//  p->setVM(VM);
+//  p->Parse();
+//  VM->Execute();
+//  delete s;
+//  delete p;
+//
+//  // INSERT
+//  s = new Scanner((byte*)MQL_INSERT, strlen(MQL_INSERT));
+//  p = new Parser(s);
+//  p->setVM(VM);
+//  p->Parse();
+//  VM->Execute();
+//  delete s;
+//  delete p;
+//
+//  // DESCRIBE
+//  s = new Scanner((byte*)MQL_DESCRIBE, strlen(MQL_DESCRIBE));
+//  p = new Parser(s);
+//  p->setVM(VM);
+//  p->Parse();
+//  VM->Execute();
+//  delete s;
+//  delete p;
+//
+//  delete VM;
+//  ret = mdbCloseDatabase(db);
+//
+//  return 0;
+//}
 
 //extern "C" {
 //  #include "mastersdb.h"

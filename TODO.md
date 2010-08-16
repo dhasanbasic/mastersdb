@@ -5,7 +5,6 @@
 
 Active development
 ------------------
-  * implement DESC
   * implement SELECT
   
 Pending
@@ -95,6 +94,8 @@ Finished
   * implement CREATE TABLE
   
   * implement INSERT INTO
+
+  * implement DESC
 
 Optimizations
 -------------
