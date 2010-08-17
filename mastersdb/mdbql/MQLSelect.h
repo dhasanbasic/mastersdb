@@ -60,6 +60,8 @@ private:
   vector<mdbDestinationColumn> destColumns;
   mdbTMap tables;
   bool allColumns;
+  MastersDBVM *VM;
+  uint16 dptr;
 public:
   MQLSelect();
   void UseAllColumns();
@@ -67,7 +69,20 @@ public:
   void MapTable(string *table, uint16 tp);
   void RemapColumns();
   void Reset();
+  void GenerateBytecode();
+
+  void setDataPointer(uint16 dptr)
+  {
+    this->dptr = dptr;
+  }
+
+  void setVM(MastersDBVM *vm)
+  {
+    VM = vm;
+  }
+
   virtual ~MQLSelect();
+
 
   void toString()
   {

@@ -131,6 +131,46 @@ void MQLSelect::Reset()
   allColumns = false;
 }
 
+/*
+ * Generates the MastersDB virtual machine byte-code equivalent for the
+ * parsed SELECT MQL query
+ */
+void MQLSelect::GenerateBytecode()
+{
+  mdbTMapIter iter;
+  uint32 len;
+  uint16 jmp;
+  char *table;
+
+  // if '*' was specified instead of column list...
+  if (allColumns)
+  {
+    // retrieve the one and only table and store its name in the VM memory
+    mdbTMapIter iter = tables.begin();
+    len = iter->first.length();
+    table = new char[len + 4];
+    iter->first.copy(table + 4, len);
+    *((uint32*)table) = len;
+    VM->Store(table, dptr);
+    // USE TABLE and LOAD TABLE
+    VM->AddInstruction(MastersDBVM::USETBL, iter->second.first);
+    VM->AddInstruction(MastersDBVM::LDTBL, dptr++);
+    // COPY ALL COLUMNS of tables[DATA].columns
+    VM->AddInstruction(MastersDBVM::LDTBL, iter->second.first);
+    // NEXT RECORD (retrieves next record of tables[DATA] and pushes
+    // 1 on top of stack, or 0 if there are no more records
+    jmp = VM->getCodePointer();
+//    VM->AddInstruction(MastersDBVM::NXTREC, iter->second.first);
+//    // CONDITIONAL HALT (halt if _pop == DATA)
+//    VM->AddInstruction(MastersDBVM::CHALT, 0);
+//    // COPY RECORD of tables[DATA] to the result store
+//    VM->AddInstruction(MastersDBVM::CPYREC, iter->second.first);
+//    // ADD RECORD to results and allocate a new record store
+//    VM->AddInstruction(MastersDBVM::ADDREC, iter->second.first);
+//    VM->AddInstruction(MastersDBVM::JMP, jmp);
+  }
+}
+
 MQLSelect::~MQLSelect()
 {
   if (tables.size() > 0)

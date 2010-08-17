@@ -130,7 +130,7 @@ void MastersDBVM::Decode()
     case NEWCOL:  NewResultColumn(); break;
     case NEWREC:  NewResultRecord(); break;
     // Record (B-tree) operations
-    case NEXTRC:  NextRecord(); break;
+    case NXTREC:  NextRecord(); break;
     case NEWRC:   NewRecord(); break;
     // VM control operations
     case HALT:    Reset(); break;

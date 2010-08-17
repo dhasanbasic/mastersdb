@@ -31,6 +31,8 @@
  *  mdbQueryResult re-factoring.
  *  Added the PUSHOF, NEWCOL, NEWREC instructions.
  *  Added the DSCTBL instruction.
+ * 16.08.2010
+ *  Added the getCodePointer function.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -102,7 +104,7 @@ public:
     /*
      * Record (B-tree) operations
      */
-    NEXTRC, // NEXT RECORD
+    NXTREC, // NEXT RECORD
     NEWRC,  // NEW RECORD
     /*
      * VM Control operations
@@ -161,6 +163,11 @@ private:
 
 public:
   MastersDBVM(mdbDatabase *db);
+
+  uint16 getCodePointer()
+  {
+    return cp;
+  }
 
   void AddInstruction(uint8 opcode, uint16 data)
   {
