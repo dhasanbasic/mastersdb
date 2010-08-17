@@ -86,15 +86,15 @@ void Parser::MQLCreateStatement() {
 		Expect(7);
 		Expect(8);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::USETBL, tp); 
+		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
 		name = new char[s->length() + 4];            
 		*((uint32*)name) = s->length();              
 		strcpy(name + 4, s->c_str());                
 		delete s;                                    
 		ncp = dp++;                                  
-		VM->AddInstruction(MastersDBVM::PUSH, ncp);  
-		VM->AddInstruction(MastersDBVM::ADDTBL, dp); 
+		VM->AddInstruction(MastersDBVM::PUSHM, ncp); 
+		VM->AddInstruction(MastersDBVM::NEWTBL, dp); 
 		VM->Store(name, dp++);                       
 		Expect(9);
 		num_cols = 0;                                
@@ -103,7 +103,7 @@ void Parser::MQLCreateStatement() {
 		*data = num_cols;                            
 		VM->Store((char*)data, ncp);                 
 		Expect(10);
-		VM->AddInstruction(MastersDBVM::CRTBL, tp);  
+		VM->AddInstruction(MastersDBVM::CRTTBL, tp); 
 }
 
 void Parser::MQLInsertStatement() {
@@ -114,7 +114,7 @@ void Parser::MQLInsertStatement() {
 		Expect(17);
 		Expect(18);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::USETBL, tp); 
+		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
 		name = new char[s->length() + 4];            
 		*((uint32*)name) = s->length();              
@@ -126,7 +126,7 @@ void Parser::MQLInsertStatement() {
 		Expect(9);
 		MQLValues();
 		Expect(10);
-		VM->AddInstruction(MastersDBVM::INSTBL, tp); 
+		VM->AddInstruction(MastersDBVM::INSREC, tp); 
 }
 
 void Parser::MQLDescribeStatement() {
@@ -140,7 +140,7 @@ void Parser::MQLDescribeStatement() {
 			Get();
 		} else SynErr(27);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::USETBL, tp); 
+		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
 		name = new char[s->length() + 4];            
 		*((uint32*)name) = s->length();              
@@ -159,17 +159,18 @@ void Parser::MQLSelectStatement() {
 		MQLColumns();
 		Expect(23);
 		MQLTables();
+		select->setDataPointer(dp);                  
 }
 
 void Parser::MQLAttributes(uint16 &n) {
 		mdbColumnRecord *c;                          
 		n = 0;                                       
 		MQLAttribute(c);
-		VM->AddInstruction(MastersDBVM::ADDCOL, dp); 
+		VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
 		VM->Store((char*)c, dp++);                   
 		n++;                                         
 		while (la->kind == 11) {
-			VM->AddInstruction(MastersDBVM::ADDCOL, dp); 
+			VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
 			Get();
 			MQLAttribute(c);
 			VM->Store((char*)c, dp++);                   
@@ -239,7 +240,7 @@ void Parser::MQLValue() {
 			*((uint32*)data) = s->length() - 2;          
 			strncpy(data+4,s->c_str()+1,s->length()-2);  
 		} else SynErr(29);
-		VM->AddInstruction(MastersDBVM::ADDVAL, dp); 
+		VM->AddInstruction(MastersDBVM::INSVAL, dp); 
 		VM->Store(data, dp++);                       
 		delete s;                                    
 }

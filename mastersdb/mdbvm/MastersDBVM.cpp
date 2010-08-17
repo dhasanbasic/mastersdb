@@ -23,10 +23,10 @@
  * 10.08.2010
  *  Initial version of file.
  * 12.08.2010
- *  Implemented CREATE TABLE specific VM instructions: ADDTBL, ADDCOL, CRTTBL.
+ *  Implemented CREATE TABLE specific VM instructions: NEWTBL, NEWCOL, CRTTBL.
  *  Added the HALT instruction.
  * 13.08.2010
- *  Implemented the INSERT INTO specific VM instruction: ADDVAL, INSTBL.
+ *  Implemented the INSERT INTO specific VM instruction: INSVAL, INSREC.
  * 15.08.2010
  *  Implemented the DESCRIBE specific instruction DSCTBL.
  */
@@ -114,24 +114,19 @@ void MastersDBVM::Decode()
 
   switch ((mdbInstruction)opcode) {
     // Stack operations
-    case PUSH:    Push(); break;
-    case POP:     Pop(); break;
-    case PUSHOB:  PushOffsetByte(); break;
+    case PUSHM:   PushMemory(); break;
+    case POPM:    PopMemory(); break;
     // Table operations
-    case ADDTBL:  AddTable(); break;
-    case ADDCOL:  AddColumn(); break;
-    case ADDVAL:  AddValue(); break;
-    case CRTBL:   CreateTable(); break;
+    case NEWTBL:  NewTable(); break;
+    case CRTTBL:   CreateTable(); break;
     case LDTBL:   LoadTable(); break;
-    case USETBL:  UseTable(); break;
-    case INSTBL:  InsertIntoTable(); break;
+    case SETTBL:  SetTable(); break;
     case DSCTBL:  DescribeTable(); break;
-    // Result operation
-    case NEWCOL:  NewResultColumn(); break;
-    case NEWREC:  NewResultRecord(); break;
-    // Record (B-tree) operations
-    case NXTREC:  NextRecord(); break;
-    case NEWRC:   NewRecord(); break;
+    // Column operations
+    case NEWCOL:  NewColumn(); break;
+    // Source record operations
+    case INSVAL:  InsertValue(); break;
+    case INSREC:  InsertRecord(); break;
     // VM control operations
     case HALT:    Reset(); break;
     default:
@@ -171,7 +166,7 @@ void MastersDBVM::ClearResult()
  * and number of columns on top of the stack, and stores it in the
  * current virtual table.
  */
-void MastersDBVM::AddTable()
+void MastersDBVM::NewTable()
 {
   mdbTable* t;
   uint32 size = *((uint32*)memory[data]) + 4L;
@@ -188,7 +183,7 @@ void MastersDBVM::AddTable()
  * Adds the mdbColumn structure from memory[DATA] to the current
  * virtual table.
  */
-void MastersDBVM::AddColumn()
+void MastersDBVM::NewColumn()
 {
   mdbTable* t = (mdbTable*)tables[tp].table;
   memcpy(&t->columns[tables[tp].cp++], memory[data], sizeof(mdbColumnRecord));
@@ -197,7 +192,7 @@ void MastersDBVM::AddColumn()
 /*
  * Adds the value from memory[DATA] to the current virtual table.
  */
-void MastersDBVM::AddValue()
+void MastersDBVM::InsertValue()
 {
   mdbTable *tbl = (mdbTable*)tables[tp].table;
   mdbColumnRecord *col = tbl->columns + tables[tp].cp++;
@@ -250,7 +245,7 @@ void MastersDBVM::LoadTable()
 /*
  * Inserts the record of the current virtual table.
  */
-void MastersDBVM::InsertIntoTable()
+void MastersDBVM::InsertRecord()
 {
   int ret;
   ret = mdbBtreeInsert(tables[tp].record, tables[tp].table->T);
@@ -328,46 +323,6 @@ void MastersDBVM::DescribeTable()
 
     result.records->push_back(record);
   }
-
-}
-
-/*
- * Creates a new virtual column for the query results, based on:
- *   column.name = memory[DATA]
- *   column.type = stack[sp-2];
- *   column.length = memory[stack[sp-1];
- */
-void MastersDBVM::NewResultColumn()
-{
-  mdbColumnRecord *c = new mdbColumnRecord;
-  // retrieves the column name
-  uint32 len = *((uint32*)memory[data]);
-  strncpy(c->name + 4, memory[data] + 4, len);
-  *((uint32*)c->name) = len;
-  // retrieves the column length
-  c->length = *((uint32*)memory[_pop()]);
-  // retrieves the column type
-  c->type = (byte)_pop();
-}
-
-void MastersDBVM::NewResultRecord()
-{
-
-}
-
-/*
- * Loads the next record of the current virtual table.
- */
-void MastersDBVM::NextRecord()
-{
-
-}
-
-/*
- * Allocates a new result record.
- */
-void MastersDBVM::NewRecord()
-{
 
 }
 

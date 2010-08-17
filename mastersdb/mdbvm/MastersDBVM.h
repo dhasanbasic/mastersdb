@@ -26,7 +26,7 @@
  *  Added the HALT instruction.
  *  Added the Execute method.
  * 13.08.2010
- *  Added the ADDVAL and INSTBL instructions.
+ *  Added the INSVAL and INSREC instructions.
  * 15.08.2010
  *  mdbQueryResult re-factoring.
  *  Added the PUSHOF, NEWCOL, NEWREC instructions.
@@ -82,30 +82,30 @@ public:
     /*
      * Stack operations
      */
-    PUSH,   // PUSH
-    POP,    // POP
-    PUSHOB, // PUSH OFFSET BYTE
+    PUSHM,  // PUSH FROM MEMORY
+    POPM,   // POP TO MEMORY
     /*
      * Table operations
      */
-    ADDTBL, // ADD TABLE
-    ADDCOL, // ADD COLUMN
-    ADDVAL, // ADD VALUE
-    CRTBL,  // CREATE TABLE
+    NEWTBL, // NEW TABLE
+    CRTTBL, // CREATE TABLE
     LDTBL,  // LOAD TABLE
-    USETBL, // USE TABLE
-    INSTBL, // INSERT INTO TABLE
+    SETTBL, // SET CURRENT TABLE
     DSCTBL, // DESCRIBE TABLE
+    /*
+     * Column operations
+     */
+    NEWCOL, // NEW COLUMN
+    /*
+     * Source record operations
+     */
+    INSVAL, // INSERT VALUE
+    INSREC, // INSERT RECORD
+
     /*
      * Result operations
      */
-    NEWCOL, // NEW RESULT COLUMN
-    NEWREC, // NEW RESULT RECORD
-    /*
-     * Record (B-tree) operations
-     */
-    NXTREC, // NEXT RECORD
-    NEWRC,  // NEW RECORD
+
     /*
      * VM Control operations
      */
@@ -196,7 +196,7 @@ public:
   /*
    * Pushes value memory[DATA] to stack
    */
-  void Push()
+  void PushMemory()
   {
     stack[sp++] = *((uint16*)memory[data]);
   }
@@ -204,7 +204,7 @@ public:
   /*
    * Pops value from stack and stores it in memory[DATA]
    */
-  void Pop()
+  void PopMemory()
   {
     memory[data] = (char*)(new uint16);
     *((uint16*)memory[data]) = stack[--sp];
@@ -233,29 +233,21 @@ public:
   }
 
   // Table operations
-  void AddTable();
-  void AddColumn();
-  void AddValue();
+  void NewTable();
+  void NewColumn();
+  void InsertValue();
   void CreateTable();
   void LoadTable();
-  void InsertIntoTable();
+  void InsertRecord();
   void DescribeTable();
 
   /*
    * Sets the value of the current table to DATA.
    */
-  void UseTable()
+  void SetTable()
   {
     tp = (uint8)data;
   }
-
-  // Result operations
-  void NewResultColumn();
-  void NewResultRecord();
-
-  // Record (B-tree) operations
-  void NextRecord();
-  void NewRecord();
 
   virtual ~MastersDBVM();
 };

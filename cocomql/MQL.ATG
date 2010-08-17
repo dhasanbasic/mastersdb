@@ -141,15 +141,15 @@ MQLCreateStatement =       (. string *s;       .)
                            (. tp = 0;          .)
   "CREATE" "TABLE"
   
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
   						   (. s = TokenToString();                         .)
                            (. name = new char[s->length() + 4];            .)
                            (. *((uint32*)name) = s->length();              .)
                            (. strcpy(name + 4, s->c_str());                .)
                            (. delete s;                                    .)
                            (. ncp = dp++;                                  .)
-                           (. VM->AddInstruction(MastersDBVM::PUSH, ncp);  .)
-                           (. VM->AddInstruction(MastersDBVM::ADDTBL, dp); .)
+                           (. VM->AddInstruction(MastersDBVM::PUSHM, ncp); .)
+                           (. VM->AddInstruction(MastersDBVM::NEWTBL, dp); .)
                            (. VM->Store(name, dp++);                       .)
                            
   '('                      (. num_cols = 0;                                .)
@@ -158,7 +158,7 @@ MQLCreateStatement =       (. string *s;       .)
                            (. *data = num_cols;                            .)
                            (. VM->Store((char*)data, ncp);                 .)
   ')'
-                           (. VM->AddInstruction(MastersDBVM::CRTBL, tp);  .).
+                           (. VM->AddInstruction(MastersDBVM::CRTTBL, tp); .).
 
 /*
  * MQL attributes
@@ -167,11 +167,11 @@ MQLCreateStatement =       (. string *s;       .)
 MQLAttributes<uint16 &n> = (. mdbColumnRecord *c;                          .)
                            (. n = 0;                                       .)
                            
-  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::NEWCOL, dp); .)
                            (. VM->Store((char*)c, dp++);                   .)
                            (. n++;                                         .)
                            
-  {                        (. VM->AddInstruction(MastersDBVM::ADDCOL, dp); .)
+  {                        (. VM->AddInstruction(MastersDBVM::NEWCOL, dp); .)
   ',' MQLAttribute<c>         
                            (. VM->Store((char*)c, dp++);                   .)
                            (. n++;                                         .)
@@ -221,7 +221,7 @@ MQLInsertStatement =       (. string *s;       .)
                            (. tp = 0;          .)
   "INSERT" "INTO"
 
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
   						   (. s = TokenToString();                         .)
                            (. name = new char[s->length() + 4];            .)
                            (. *((uint32*)name) = s->length();              .)
@@ -231,7 +231,7 @@ MQLInsertStatement =       (. string *s;       .)
                            (. VM->Store(name, dp++);                       .)
   "VALUES"
   '(' MQLValues ')'
-                           (. VM->AddInstruction(MastersDBVM::INSTBL, tp); .).
+                           (. VM->AddInstruction(MastersDBVM::INSREC, tp); .).
 
 /*
  * MQLValues
@@ -254,7 +254,7 @@ MQLValue =                 (. string *s;                                   .)
                            (. *((uint32*)data) = s->length() - 2;          .)
                            (. strncpy(data+4,s->c_str()+1,s->length()-2);  .)
   )
-                           (. VM->AddInstruction(MastersDBVM::ADDVAL, dp); .)
+                           (. VM->AddInstruction(MastersDBVM::INSVAL, dp); .)
                            (. VM->Store(data, dp++);                       .)
                            (. delete s;                                    .).
 
@@ -268,7 +268,7 @@ MQLDescribeStatement =     (. string *s;       .)
                            (. tp = 0;          .)
   ("DESC" | "DESCRIBE")
 
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::USETBL, tp); .)
+  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
   						   (. s = TokenToString();                         .)
                            (. name = new char[s->length() + 4];            .)
                            (. *((uint32*)name) = s->length();              .)

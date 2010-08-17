@@ -139,11 +139,11 @@ int main(int argc, char **argv)
 //  VM->Store((char*)col1, 1);
 //  VM->Store((char*)col2, 2);
 //
-//  VM->AddInstruction(MastersDBVM::PUSH, 2);
-//  VM->AddInstruction(MastersDBVM::ADDTBL, 0);
-//  VM->AddInstruction(MastersDBVM::ADDCOL, 1);
-//  VM->AddInstruction(MastersDBVM::ADDCOL, 2);
-//  VM->AddInstruction(MastersDBVM::CRTBL, 0);
+//  VM->AddInstruction(MastersDBVM::PUSHM, 2);
+//  VM->AddInstruction(MastersDBVM::NEWTBL, 0);
+//  VM->AddInstruction(MastersDBVM::NEWCOL, 1);
+//  VM->AddInstruction(MastersDBVM::NEWCOL, 2);
+//  VM->AddInstruction(MastersDBVM::CRTTBL, 0);
 //
 //  VM->Decode();
 //  VM->Decode();

@@ -153,7 +153,7 @@ void MQLSelect::GenerateBytecode()
     *((uint32*)table) = len;
     VM->Store(table, dptr);
     // USE TABLE and LOAD TABLE
-    VM->AddInstruction(MastersDBVM::USETBL, iter->second.first);
+    VM->AddInstruction(MastersDBVM::SETTBL, iter->second.first);
     VM->AddInstruction(MastersDBVM::LDTBL, dptr++);
     // COPY ALL COLUMNS of tables[DATA].columns
     VM->AddInstruction(MastersDBVM::LDTBL, iter->second.first);
