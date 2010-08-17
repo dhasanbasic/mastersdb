@@ -286,7 +286,8 @@ MQLSelectStatement =       (. dp = 0;          .)
                            (. tp = 0;          .)
                            (. select->Reset(); .)
 
-  "SELECT" MQLColumns "FROM" MQLTables. /* [WHERE MQLConditions] */
+  "SELECT" MQLColumns "FROM" MQLTables
+                           (. select->setDataPointer(dp);                  .).
 
 /*
  * MQLColumns
