@@ -12,13 +12,15 @@ int main(int argc, char **argv)
   MastersDBVM *VM;
   MQLSelect *select;
 
+  setlocale(LC_CTYPE, "en_US.utf8");
+
   const char *MQL_QUERY[8] = {
       "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));",
-      "INSERT INTO Studenti VALUES('Dinko','Hasanbasic');",
+      "INSERT INTO Studenti VALUES('Dinko','Hasanbašić');",
       "INSERT INTO Studenti VALUES('Amar','Trnka');",
-      "INSERT INTO Studenti VALUES('Denis','Hasanbasic');",
-      "INSERT INTO Studenti VALUES('Dino','Merzic');",
-      "INSERT INTO Studenti VALUES('Nedim','Srndic');",
+      "INSERT INTO Studenti VALUES('Denis','Hasanbašić');",
+      "INSERT INTO Studenti VALUES('Dino','Merzić');",
+      "INSERT INTO Studenti VALUES('Nedim','Šrndić');",
       "DESCRIBE Studenti;",
       "SELECT * FROM Studenti;"};
 //      "SELECT Ime, Prezime, BrIndex FROM Studenti;",

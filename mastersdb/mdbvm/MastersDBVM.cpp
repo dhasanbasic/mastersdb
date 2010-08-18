@@ -82,7 +82,7 @@ void MastersDBVM::Reset()
   {
     if (memory[i] != NULL)
     {
-      delete memory[i];
+      free(memory[i]);
       memory[i] = NULL;
     }
   }
@@ -96,11 +96,11 @@ void MastersDBVM::Reset()
     }
     if (tables[i].record != NULL)
     {
-      delete tables[i].record;
+      delete[] tables[i].record;
     }
     if (tables[i].traversal != NULL)
     {
-      delete ((mdbBtreeTraversal*)tables[i].traversal);
+      delete tables[i].traversal;
     }
     memset(&tables[i], 0, sizeof(mdbVirtualTable));
   }
@@ -114,7 +114,7 @@ void MastersDBVM::Reset()
 
 MastersDBVM::~MastersDBVM()
 {
-
+  ClearResult();
 }
 
 void MastersDBVM::Decode()
@@ -167,14 +167,17 @@ void MastersDBVM::ClearResult()
     }
     for (i = 0; i < result.records.size(); i++)
     {
-      delete result.records[i];
+      delete[] result.records[i];
     }
     result.columns.clear();
     result.records.clear();
   }
   result.record_size = 0;
-  delete result.record;
-  result.record = NULL;
+  if (result.record != NULL)
+  {
+    delete[] result.record;
+    result.record = NULL;
+  }
   result.rp = NULL;
   result.cp = 0;
 }
@@ -189,6 +192,7 @@ void MastersDBVM::NewTable()
   mdbTable* t;
   uint32 size = *((uint32*)memory[data]) + 4L;
   t = (mdbTable*)malloc(sizeof(mdbTable));
+  memset(t, 0, sizeof(mdbTable));
   t->db = db;
   memcpy(t->rec.name, memory[data], size);
   t->rec.columns = (byte)stack[--sp];
@@ -257,6 +261,7 @@ void MastersDBVM::LoadTable()
   ret = mdbLoadTable(db, &tables[tp].table, memory[data]);
   // allocates the record storage
   tables[tp].record = new char[tables[tp].table->T->meta.record_size];
+  memset(tables[tp].record, 0, tables[tp].table->T->meta.record_size);
   tables[tp].rp = tables[tp].record;
 }
 

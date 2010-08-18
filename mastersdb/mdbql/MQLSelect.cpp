@@ -157,7 +157,7 @@ void MQLSelect::GenerateSelectBytecode()
   // retrieve the one and only table and store its name in the VM memory
   iter = tables.begin();
   len = iter->first.length();
-  table = new char[len + 4];
+  table = (char*)malloc(len + 4);
   iter->first.copy(table + 4, len);
   *((uint32*)table) = len;
   VM->StoreData(table, dptr);

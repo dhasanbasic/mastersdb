@@ -31,12 +31,15 @@
 
 int mdbFreeTable(mdbTable *t)
 {
-  fseek(t->db->file, t->T->meta.root_position, SEEK_SET);
-  fwrite(t->T->root->data, t->T->nodeSize, 1, t->db->file);
+  if (t->T != NULL)
+  {
+    fseek(t->db->file, t->T->meta.root_position, SEEK_SET);
+    fwrite(t->T->root->data, t->T->nodeSize, 1, t->db->file);
+    free(t->T->root->data);
+    free(t->T->root);
+    free(t->T);
+  }
   cfree(t->columns);
-  free(t->T->root->data);
-  free(t->T->root);
-  free(t->T);
   free(t);
   return MDB_TABLE_SUCCESS;
 }
@@ -76,6 +79,7 @@ int mdbCreateSystemTables(mdbDatabase *db)
   {
     /* initialize the table structure */
     (*tbl[t]) = (mdbTable*)malloc(sizeof(mdbTable));
+    memset((*tbl[t]), 0, sizeof(mdbTable));
     (*tbl[t])->db = db;
     ret = mdbBtreeCreate(&(*tbl[t])->T, 0L, tbl_recordlens[t], 0L);
     ret = mdbAllocateNode(&((*tbl[t])->T->root), (*tbl[t])->T);

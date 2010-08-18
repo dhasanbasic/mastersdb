@@ -89,9 +89,9 @@ void Parser::MQLCreateStatement() {
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
-		name = new char[s->length() + 4];            
+		name = (char*)malloc(s->length() + 4);       
 		*((uint32*)name) = s->length();              
-		strcpy(name + 4, s->c_str());                
+		strncpy(name + 4, s->c_str(), s->length());  
 		delete s;                                    
 		ncp = dp++;                                  
 		VM->AddInstruction(MastersDBVM::PUSHM, ncp); 
@@ -100,7 +100,7 @@ void Parser::MQLCreateStatement() {
 		Expect(9);
 		num_cols = 0;                                
 		MQLAttributes(num_cols);
-		data = new uint16;                           
+		data = (uint16*)malloc(sizeof(uint16));      
 		*data = num_cols;                            
 		VM->StoreData((char*)data, ncp);             
 		Expect(10);
@@ -117,9 +117,9 @@ void Parser::MQLInsertStatement() {
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
-		name = new char[s->length() + 4];            
+		name = (char*)malloc(s->length() + 4);       
 		*((uint32*)name) = s->length();              
-		strcpy(name + 4, s->c_str());                
+		strncpy(name + 4, s->c_str(), s->length());  
 		delete s;                                    
 		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
 		VM->StoreData(name, dp++);                   
@@ -143,9 +143,9 @@ void Parser::MQLDescribeStatement() {
 		Expect(2);
 		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
 		s = TokenToString();                         
-		name = new char[s->length() + 4];            
+		name = (char*)malloc(s->length() + 4);       
 		*((uint32*)name) = s->length();              
-		strcpy(name + 4, s->c_str());                
+		strncpy(name + 4, s->c_str(), s->length());  
 		delete s;                                    
 		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
 		VM->StoreData(name, dp++);                   
@@ -181,12 +181,14 @@ void Parser::MQLAttributes(uint16 &n) {
 }
 
 void Parser::MQLAttribute(mdbColumnRecord* &c) {
-		c = new mdbColumnRecord;           
 		string *s;                         
+		c = (mdbColumnRecord*)                       
+		malloc(sizeof(mdbColumnRecord));      
+		memset(c, 0, sizeof(mdbColumnRecord));       
 		Expect(2);
 		s = TokenToString();                         
 		*((uint32*)c->name) = s->length();           
-		strcpy(c->name + 4, s->c_str());             
+		strncpy(c->name+4, s->c_str(), s->length()); 
 		delete s;                                    
 		MQLDatatype(c);
 		c->length = 0;                               
@@ -233,12 +235,12 @@ void Parser::MQLValue() {
 		if (la->kind == 1) {
 			Get();
 			s = TokenToString();                         
-			data = (char*)(new uint32);                  
+			data = (char*)malloc(sizeof(uint32));        
 			*data = atoi(s->c_str());                    
 		} else if (la->kind == 4) {
 			Get();
 			s = TokenToString();                         
-			data = new char[s->length() + 4];            
+			data = (char*)malloc(s->length() + 4);       
 			*((uint32*)data) = s->length() - 2;          
 			strncpy(data+4,s->c_str()+1,s->length()-2);  
 		} else SynErr(29);

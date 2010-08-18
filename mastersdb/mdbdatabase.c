@@ -222,6 +222,7 @@ int mdbCloseDatabase(mdbDatabase *db)
   /* the file can now be closed */
   fclose(db->file);
 
+  cfree(db->datatypes);
   free(db);
 
   return MDB_DATABASE_SUCCESS;
