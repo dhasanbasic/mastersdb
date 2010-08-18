@@ -37,13 +37,17 @@
  *  Added the RewriteInstruction method.
  *  Change the byte-code container to be a 16-bit array.
  *  Added new instructions: NOP, CPYCOL, NXTREC, CPYREC, NEWRES, JMP, JMPF.
+ * 18.08.2010
+ *  The mdbVirtualTable structure now contains a map of its column names.
  */
 
 #ifndef MASTERSDBVM_H_
 #define MASTERSDBVM_H_
 
 #include <stdint.h>
+#include <string>
 #include <vector>
+#include <map>
 
 extern "C" {
   #include "../mastersdb.h"
@@ -62,6 +66,12 @@ namespace MDB
  * I - instruction bits (64 instructions possible)
  * D - data bits (max. value is 1024)
  */
+
+// Column map typedefs
+typedef map<string,uint16>        mdbCMap;
+typedef pair<string,uint16>       mdbCMapPair;
+typedef mdbCMap::iterator         mdbCMapIter;
+typedef pair<mdbCMapIter,bool>    mdbCMapResult;
 
 // MastersDB VM instruction macros
 
@@ -139,6 +149,8 @@ public:
     mdbBtreeTraversal *traversal; // used for traversing the B-tree
     uint8 cp;                     // column pointer
     char *rp;                     // record pointer
+    mdbCMap cols;                 // used for mapping column names to
+                                  // table->columns[] indexes
   };
 
   // The MastersDB Query Language result

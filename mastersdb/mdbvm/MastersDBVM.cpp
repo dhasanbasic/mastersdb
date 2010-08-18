@@ -37,6 +37,8 @@
  *  - NEWRES : NewResult
  *  - JMP    : Jump
  *  - JMPF   : JumpOnFailure.
+ * 18.08.2010
+ *  The mdbVirtualTable structure now contains a map of its column names.
  */
 
 #include "MastersDBVM.h"
@@ -60,7 +62,10 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
 
   for (i = 0; i < MDB_VM_TABLES_SIZE; i++)
   {
-    memset(&tables[i], 0, sizeof(mdbVirtualTable));
+    tables[i].cp = 0;
+    tables[i].record = NULL;
+    tables[i].traversal = NULL;
+    tables[i].table = NULL;
   }
 
   result.cp = 0;
@@ -93,16 +98,24 @@ void MastersDBVM::Reset()
     if (tables[i].table != NULL)
     {
       mdbFreeTable((mdbTable*)tables[i].table);
+      tables[i].table = NULL;
     }
     if (tables[i].record != NULL)
     {
       delete[] tables[i].record;
+      tables[i].record = NULL;
     }
     if (tables[i].traversal != NULL)
     {
       delete tables[i].traversal;
+      tables[i].traversal = NULL;
     }
-    memset(&tables[i], 0, sizeof(mdbVirtualTable));
+    if (tables[i].cols.size() > 0)
+    {
+      tables[i].cols.clear();
+    }
+    tables[i].cp = 0;
+    tables[i].rp = NULL;
   }
 
   // reset all pointers
@@ -258,11 +271,23 @@ void MastersDBVM::CreateTable()
 void MastersDBVM::LoadTable()
 {
   int ret;
+  uint16 c;
+  uint32 len;
+  mdbColumnRecord *col;
+  string name;
   ret = mdbLoadTable(db, &tables[tp].table, memory[data]);
   // allocates the record storage
   tables[tp].record = new char[tables[tp].table->T->meta.record_size];
   memset(tables[tp].record, 0, tables[tp].table->T->meta.record_size);
   tables[tp].rp = tables[tp].record;
+  // maps the column names to their indexes
+  for (c = 0; c < tables[tp].table->rec.columns; c++)
+  {
+    col = tables[tp].table->columns + c;
+    len = *((uint32*)col->name);
+    name = string(col->name + 4, len);
+    tables[tp].cols[name] = c;
+  }
 }
 
 /*
@@ -272,6 +297,7 @@ void MastersDBVM::InsertRecord()
 {
   int ret;
   ret = mdbBtreeInsert(tables[tp].record, tables[tp].table->T);
+  void *c = NULL;
 }
 
 /*

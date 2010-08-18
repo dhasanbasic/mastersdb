@@ -22,24 +22,19 @@
  * ----------------
  * 16.08.2010
  *  Initial version of file.
+ * 18.08.2010
+ *  Moved mdbCMap type definitions to MastersDBVM.h.
  */
 
 #ifndef MQLSELECT_H_
 #define MQLSELECT_H_
 
 #include "../mdbvm/MastersDBVM.h"
-#include <vector>
-#include <string>
-#include <map>
 
 using namespace std;
 
-// Column map typedefs
-typedef map<string,uint16>        mdbCMap;
-typedef pair<string,uint16>       mdbCMapPair;
-typedef mdbCMap::iterator         mdbCMapIter;
-typedef pair<mdbCMapIter,bool>    mdbCMapResult;
-
+namespace MDB
+{
 // Table map typedefs
 typedef pair<uint16,mdbCMap*>     mdbTMapItem;
 typedef map<string,mdbTMapItem>   mdbTMap;
@@ -49,9 +44,6 @@ typedef pair<mdbTMapIter,bool>    mdbTMapResult;
 
 // Destination columns
 typedef pair<string,string>       mdbDestinationColumn;
-
-namespace MDB
-{
 
 class MQLSelect
 {
