@@ -29,6 +29,14 @@
  *  Implemented the INSERT INTO specific VM instruction: INSVAL, INSREC.
  * 15.08.2010
  *  Implemented the DESCRIBE specific instruction DSCTBL.
+ * 17.08.2010
+ *  Implemented a few SELECT specific instructions:
+ *  - CPYCOL : CopyColumn
+ *  - NXTREC : NextRecord
+ *  - CPYREC : CopyRecord
+ *  - NEWRES : NewResult
+ *  - JMP    : Jump
+ *  - JMPF   : JumpOnFailure.
  */
 
 #include "MastersDBVM.h"
@@ -54,8 +62,11 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
   {
     memset(&tables[i], 0, sizeof(mdbVirtualTable));
   }
-  result.columns = new vector<mdbColumnRecord*>;
-  result.records = new vector<char*>;
+
+  result.cp = 0;
+  result.record_size = 0;
+  result.rp = NULL;
+  result.record = NULL;
   this->db = db;
 }
 
@@ -103,39 +114,42 @@ void MastersDBVM::Reset()
 
 MastersDBVM::~MastersDBVM()
 {
-  delete result.columns;
-  delete result.records;
+
 }
 
 void MastersDBVM::Decode()
 {
   opcode = MVI_OPCODE(bytecode[ip]);
-  data = MVI_DATA(bytecode[ip], bytecode[ip + 1]);
+  data = MVI_DATA(bytecode[ip++]);
 
   switch ((mdbInstruction)opcode) {
+    // No operation
+    case NOP:     break;
     // Stack operations
     case PUSHM:   PushMemory(); break;
     case POPM:    PopMemory(); break;
     // Table operations
     case NEWTBL:  NewTable(); break;
-    case CRTTBL:   CreateTable(); break;
+    case CRTTBL:  CreateTable(); break;
     case LDTBL:   LoadTable(); break;
     case SETTBL:  SetTable(); break;
     case DSCTBL:  DescribeTable(); break;
     // Column operations
     case NEWCOL:  NewColumn(); break;
+    case CPYCOL:  CopyColumn(); break;
     // Source record operations
     case INSVAL:  InsertValue(); break;
     case INSREC:  InsertRecord(); break;
+    case NXTREC:  NextRecord(); break;
+    case CPYREC:  CopyRecord(); break;
+    // Result operations
+    case NEWRES:  NewResult(); break;
     // VM control operations
+    case JMP:     Jump(); break;
+    case JMPF:    JumpOnFailure(); break;
     case HALT:    Reset(); break;
     default:
       break;
-  }
-
-  if (opcode != HALT)
-  {
-    ip += 2;
   }
 }
 
@@ -145,21 +159,25 @@ void MastersDBVM::Decode()
 void MastersDBVM::ClearResult()
 {
   uint32 i;
-  for (i = 0; i < result.columns->size(); i++)
+  if (result.records.size() > 0)
   {
-    delete result.columns->at(i);
+    for (i = 0; i < result.columns.size(); i++)
+    {
+      delete result.columns[i];
+    }
+    for (i = 0; i < result.records.size(); i++)
+    {
+      delete result.records[i];
+    }
+    result.columns.clear();
+    result.records.clear();
   }
-  for (i = 0; i < result.records->size(); i++)
-  {
-    delete result.records->at(i);
-  }
-  result.columns->clear();
-  result.records->clear();
   result.record_size = 0;
+  delete result.record;
+  result.record = NULL;
   result.rp = NULL;
   result.cp = 0;
-};
-
+}
 
 /*
  * Allocates a new virtual table, with name stored in memory[DATA]
@@ -263,8 +281,6 @@ void MastersDBVM::DescribeTable()
   uint8 r;
   uint8 c;
   uint32 len;
-  char *record;
-  char *rp;
   mdbColumnRecord *col;
 
   // creates the result columns
@@ -276,54 +292,163 @@ void MastersDBVM::DescribeTable()
     *((uint32*)col->name) = len;
     col->type = desc_types[c];
     col->length = desc_lengths[c];
-    result.columns->push_back(col);
+    result.columns.push_back(col);
   }
 
   // determine result record size
   len = 0;
   for (c = 0; c < 4; c++)
   {
-    if (db->datatypes[result.columns->at(c)->type].header > 0)
+    if (db->datatypes[result.columns[c]->type].header > 0)
     {
-      len += result.columns->at(c)->length +
-          db->datatypes[result.columns->at(c)->type].header;
+      len += result.columns[c]->length +
+          db->datatypes[result.columns[c]->type].header;
     }
     else
     {
-      len += db->datatypes[result.columns->at(c)->type].size;
+      len += db->datatypes[result.columns[c]->type].size;
     }
   }
 
   result.record_size = len;
 
-  // add the results
+  // adds the results
   for (r = 0; r < tables[tp].table->rec.columns; r++)
   {
-    record = new char[result.record_size];
-    rp = record;
+    result.record = new char[result.record_size];
+    result.rp = result.record;
     col = tables[tp].table->columns + r;
 
     // insert the column name
     len = *((uint32*)col->name);
-    memcpy(rp, col->name, len + 4);
-    rp += result.columns->at(0)->length + 4;
+    memcpy(result.rp, col->name, len + 4);
+    result.rp += result.columns[0]->length + 4;
 
     // insert the column data type name
     len = strlen(db->datatypes[col->type].name);
-    *((uint32*)rp) = len;
-    strncpy(rp + 4, db->datatypes[col->type].name, len);
-    rp += result.columns->at(1)->length + 4;
+    *((uint32*)result.rp) = len;
+    strncpy(result.rp + 4, db->datatypes[col->type].name, len);
+    result.rp += result.columns[1]->length + 4;
 
     // insert the column length information
-    *((uint32*)rp) = col->length;
-    rp += db->datatypes[result.columns->at(2)->type].size;
+    *((uint32*)result.rp) = col->length;
+    result.rp += db->datatypes[result.columns[2]->type].size;
 
     // insert the column indexed information
-    *((byte*)rp) = col->indexed;
+    *((byte*)result.rp) = col->indexed;
 
-    result.records->push_back(record);
+    result.records.push_back(result.record);
+    result.record = NULL;
+  }
+}
+
+/*
+ * Copies the column[DATA] of the current virtual table
+ * to the result column store. If DATA is MVI_ALL then
+ * all columns of the current virtual table are copied.
+ */
+void MastersDBVM::CopyColumn()
+{
+  uint8 i;
+  mdbColumnRecord *src, *dest;
+
+  if (data < MVI_ALL)
+  {
+    // copies a single column meta-data
+    src = tables[tp].table->columns + data;
+    dest = new mdbColumnRecord;
+    memcpy(dest->name, src->name, sizeof(src->name));
+    dest->type = src->type;
+    dest->length = src->length;
+    result.columns.push_back(dest);
+    // updates the result record size
+    if (db->datatypes[src->type].header > 0)
+    {
+      result.record_size += src->length + db->datatypes[src->type].header;
+    }
+    else
+    {
+      result.record_size += db->datatypes[src->type].size;
+    }
+  }
+  else
+  {
+    // copies all column meta-data
+    for (i = 0; i < tables[tp].table->rec.columns; i++)
+    {
+      src = tables[tp].table->columns + i;
+      dest = new mdbColumnRecord;
+      memcpy(dest->name, src->name, sizeof(src->name));
+      dest->type = src->type;
+      dest->length = src->length;
+      result.columns.push_back(dest);
+      // updates the result record size
+      if (db->datatypes[src->type].header > 0)
+      {
+        result.record_size += src->length + db->datatypes[src->type].header;
+      }
+      else
+      {
+        result.record_size += db->datatypes[src->type].size;
+      }
+    }
+    // in this case the full result record size in known, so
+    // a new result record store can be allocated
+    result.record = new char[result.record_size];
+    result.rp = result.record;
+  }
+}
+
+/*
+ * Adds the current result record to the results store
+ * and allocates a new result record.
+ */
+void MastersDBVM::NewResult()
+{
+  if (result.record != NULL)
+  {
+    result.records.push_back(result.record);
+  }
+  result.record = new char[result.record_size];
+  result.rp = result.record;
+  result.cp = 0;
+}
+
+/*
+ * Copies the current record of the tables[DATA] virtual table
+ * to the result record.
+ */
+void MastersDBVM::CopyRecord()
+{
+  memcpy(result.record, tables[data].record, result.record_size);
+  result.records.push_back(result.record);
+  result.record = new char[result.record_size];
+  result.rp = result.record;
+  result.cp = 0;
+}
+
+/*
+ * Retrieves the next record of the tables[DATA] virtual table.
+ * Either MVI_SUCCESS or MVI_FAILURE is placed on stack, depending
+ * on whether a record from the table was returned.
+ */
+void MastersDBVM::NextRecord()
+{
+  int ret;
+  mdbBtreeTraversal *tr;
+
+  // if this is the first call...
+  if (tables[tp].traversal == NULL)
+  {
+    tr = new mdbBtreeTraversal;
+    tr->node = tables[tp].table->T->root;
+    tr->parent = NULL;
+    tr->position = 0;
+    tables[tp].traversal = tr;
   }
 
+  ret = mdbBtreeTraverse(&tables[tp].traversal, tables[tp].record);
+  _push((ret != MDB_BTREE_NOTFOUND) ? MVI_SUCCESS : MVI_FAILURE);
 }
 
 } // END of NAMESPACE

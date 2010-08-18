@@ -6,34 +6,47 @@ int main(int argc, char **argv)
   Scanner *s;
   Parser *p;
   uint8 i;
+  int ret;
 
+  mdbDatabase *db;
   MastersDBVM *VM;
   MQLSelect *select;
 
-  const char *MQL_QUERY[3] = {
-      "SELECT * FROM Studenti;",
-      "SELECT Ime, Prezime, BrIndex FROM Studenti;",
-      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Sefovi.Odjel FROM Zaposleni, Sefovi;"
-  };
+  const char *MQL_QUERY[8] = {
+      "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));",
+      "INSERT INTO Studenti VALUES('Dinko','Hasanbasic');",
+      "INSERT INTO Studenti VALUES('Amar','Trnka');",
+      "INSERT INTO Studenti VALUES('Denis','Hasanbasic');",
+      "INSERT INTO Studenti VALUES('Dino','Merzic');",
+      "INSERT INTO Studenti VALUES('Nedim','Srndic');",
+      "DESCRIBE Studenti;",
+      "SELECT * FROM Studenti;"};
+//      "SELECT Ime, Prezime, BrIndex FROM Studenti;",
+//      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Sefovi.Odjel FROM Zaposleni, Sefovi;"
+//  };
 
-  VM = new MastersDBVM(NULL);
+  ret = mdbCreateDatabase(&db, "test.mrdb");
+
+  VM = new MastersDBVM(db);
   select = new MQLSelect();
+  select->setVM(VM);
 
-  for (i = 0; i < 3; i++)
+  for (i = 0; i < 8; i++)
   {
     s = new Scanner((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
     p = new Parser(s);
     p->setVM(VM);
     p->setSelect(select);
+    printf("QUERY:\n\t%s\n\n", MQL_QUERY[i]);
     p->Parse();
-    printf("QUERY:\n\t%s\n", MQL_QUERY[i]);
-    select->toString();
+    VM->Execute();
     delete s;
     delete p;
   }
 
   delete select;
   delete VM;
+  ret = mdbCloseDatabase(db);
 
   return 0;
 }
@@ -48,13 +61,10 @@ int main(int argc, char **argv)
 //  int ret;
 //
 //  const char *MQL_CREATE =
-//      "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));";
 //
 //  const char *MQL_INSERT =
-//      "INSERT INTO Studenti VALUES(\"Dinko\",\"Hasanbasic\");";
 //
 //  const char *MQL_DESCRIBE =
-//      "DESCRIBE Studenti;";
 //
 //  // creates a new MastersDB database and virtual machine
 //  ret = mdbCreateDatabase(&db, "test.mrdb");

@@ -62,6 +62,9 @@ private:
   bool allColumns;
   MastersDBVM *VM;
   uint16 dptr;
+
+  void GenerateSelectBytecode();
+
 public:
   MQLSelect();
   void UseAllColumns();
@@ -82,34 +85,6 @@ public:
   }
 
   virtual ~MQLSelect();
-
-
-  void toString()
-  {
-    uint16 i;
-    mdbTMapIter t;
-    mdbCMapIter c;
-    for (t = tables.begin(); t != tables.end(); t++)
-    {
-      printf("%s(%u)\n", t->first.c_str(), t->second.first);
-
-      if (t->second.second != NULL)
-      {
-        for (c = t->second.second->begin(); c != t->second.second->end(); c++)
-        {
-          printf("-> %s(%u)\n", c->first.c_str(), c->second);
-        }
-      }
-    }
-
-    printf("ORDER:");
-    for (i = 0; i < destColumns.size(); i++)
-    {
-      printf(" %s.%s", destColumns[i].first.c_str(), destColumns[i].second.c_str());
-    }
-    printf("\n\n");
-  }
-
 };
 
 }

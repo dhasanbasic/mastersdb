@@ -72,7 +72,8 @@ void Parser::MQL() {
 			MQLSelectStatement();
 		} else SynErr(26);
 		Expect(6);
-		VM->AddInstruction(MastersDBVM::HALT, 0);    
+		VM->AddInstruction(MastersDBVM::HALT,        
+		MastersDBVM::MVI_SUCCESS);                 
 }
 
 void Parser::MQLCreateStatement() {
@@ -95,13 +96,13 @@ void Parser::MQLCreateStatement() {
 		ncp = dp++;                                  
 		VM->AddInstruction(MastersDBVM::PUSHM, ncp); 
 		VM->AddInstruction(MastersDBVM::NEWTBL, dp); 
-		VM->Store(name, dp++);                       
+		VM->StoreData(name, dp++);                   
 		Expect(9);
 		num_cols = 0;                                
 		MQLAttributes(num_cols);
 		data = new uint16;                           
 		*data = num_cols;                            
-		VM->Store((char*)data, ncp);                 
+		VM->StoreData((char*)data, ncp);             
 		Expect(10);
 		VM->AddInstruction(MastersDBVM::CRTTBL, tp); 
 }
@@ -121,7 +122,7 @@ void Parser::MQLInsertStatement() {
 		strcpy(name + 4, s->c_str());                
 		delete s;                                    
 		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
-		VM->Store(name, dp++);                       
+		VM->StoreData(name, dp++);                   
 		Expect(19);
 		Expect(9);
 		MQLValues();
@@ -147,7 +148,7 @@ void Parser::MQLDescribeStatement() {
 		strcpy(name + 4, s->c_str());                
 		delete s;                                    
 		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
-		VM->Store(name, dp++);                       
+		VM->StoreData(name, dp++);                   
 		VM->AddInstruction(MastersDBVM::DSCTBL, tp); 
 }
 
@@ -160,6 +161,7 @@ void Parser::MQLSelectStatement() {
 		Expect(23);
 		MQLTables();
 		select->setDataPointer(dp);                  
+		select->GenerateBytecode();                  
 }
 
 void Parser::MQLAttributes(uint16 &n) {
@@ -167,13 +169,13 @@ void Parser::MQLAttributes(uint16 &n) {
 		n = 0;                                       
 		MQLAttribute(c);
 		VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
-		VM->Store((char*)c, dp++);                   
+		VM->StoreData((char*)c, dp++);               
 		n++;                                         
 		while (la->kind == 11) {
 			VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
 			Get();
 			MQLAttribute(c);
-			VM->Store((char*)c, dp++);                   
+			VM->StoreData((char*)c, dp++);               
 			n++;                                         
 		}
 }
@@ -241,7 +243,7 @@ void Parser::MQLValue() {
 			strncpy(data+4,s->c_str()+1,s->length()-2);  
 		} else SynErr(29);
 		VM->AddInstruction(MastersDBVM::INSVAL, dp); 
-		VM->Store(data, dp++);                       
+		VM->StoreData(data, dp++);                   
 		delete s;                                    
 }
 

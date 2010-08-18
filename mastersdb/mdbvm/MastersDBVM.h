@@ -32,7 +32,11 @@
  *  Added the PUSHOF, NEWCOL, NEWREC instructions.
  *  Added the DSCTBL instruction.
  * 16.08.2010
- *  Added the getCodePointer function.
+ *  Added the getCodePointer method.
+ * 17.08.2010
+ *  Added the RewriteInstruction method.
+ *  Change the byte-code container to be a 16-bit array.
+ *  Added new instructions: NOP, CPYCOL, NXTREC, CPYREC, NEWRES, JMP, JMPF.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -61,13 +65,13 @@ namespace MDB
 
 // MastersDB VM instruction macros
 
-#define MVI_OP_MASK     0xFC
-#define MVI_DATA_MASK   0x03
+#define MVI_OP_MASK     0xFC00
+#define MVI_DATA_MASK   0x03FF
 
-#define MVI_OPCODE(b)     (b & MVI_OP_MASK)>>2
-#define MVI_DATA(b1,b2)   (((uint16)(b1 & MVI_DATA_MASK))<<8) + b2
+#define MVI_OPCODE(dw)    ((dw & MVI_OP_MASK)>>10)
+#define MVI_DATA(dw)      (dw & MVI_DATA_MASK)
 
-#define MVI_ENCODE(i,d)   (i<<2) + (((uint8)(d>>8)) & MVI_DATA_MASK)
+#define MVI_ENCODE(i,d)   (((uint16)i)<<10)+(d & MVI_DATA_MASK)
 
 class MastersDBVM
 {
@@ -79,37 +83,52 @@ private:
 
 public:
   enum mdbInstruction {
+    // No operation
+    NOP,
     /*
      * Stack operations
      */
-    PUSHM,  // PUSH FROM MEMORY
-    POPM,   // POP TO MEMORY
+    PUSHM,  // PUSH MEMORY (memory to stack)
+    POPM,   // POP MEMORY (stack to memory)
     /*
      * Table operations
      */
-    NEWTBL, // NEW TABLE
+    NEWTBL, // NEW TABLE (allocate new virtual table)
     CRTTBL, // CREATE TABLE
     LDTBL,  // LOAD TABLE
-    SETTBL, // SET CURRENT TABLE
+    SETTBL, // SET TABLE
     DSCTBL, // DESCRIBE TABLE
     /*
      * Column operations
      */
     NEWCOL, // NEW COLUMN
+    CPYCOL, // COPY COLUMN (to result columns)
     /*
-     * Source record operations
+     * Table record operations
      */
     INSVAL, // INSERT VALUE
     INSREC, // INSERT RECORD
-
+    NXTREC, // NEXT RECORD
+    CPYREC, // COPY RECORD (to result store)
     /*
      * Result operations
      */
-
+    NEWRES, // NEW RESULT RECORD
     /*
      * VM Control operations
      */
-    HALT
+    JMP,    // JMP to DATA
+    JMPF,   // JMP ON FAILURE (_pop() == MVI_FAILURE)
+    HALT,   // HALT (clear VM memory and stop execution)
+  };
+
+  // MastersDB Virtual Machine instruction constants
+  enum mdbMVIConstants
+  {
+    MVI_NOP,
+    MVI_SUCCESS,
+    MVI_FAILURE,
+    MVI_ALL = 256
   };
 
   // A virtual table
@@ -125,8 +144,9 @@ public:
   // The MastersDB Query Language result
   struct mdbQueryResult
   {
-    vector<mdbColumnRecord*> *columns;  // columns array
-    vector<char*> *records;             // records array
+    vector<mdbColumnRecord*> columns;   // columns array
+    vector<char*> records;              // records array
+    char *record;                       // current result record
     uint32 record_size;                 // record size
     uint8 cp;                           // column pointer
     char *rp;                           // record pointer
@@ -135,7 +155,7 @@ public:
 private:
 
   // MastersDB VM program
-  uint8 bytecode[MDB_VM_BYTECODE_SIZE];
+  uint16 bytecode[MDB_VM_BYTECODE_SIZE];
   uint16 ip;                  // instruction pointer (current MVI)
   uint16 cp;                  // byte code pointer (when adding instruction)
 
@@ -154,42 +174,8 @@ private:
 
   mdbDatabase *db;            // MastersDB database (mdbDatabase*)
 
-  uint8 opcode;               // INSTRUCTION part current decoded operation
-  uint16 data;                // DATA part of the current decoded operation
-
-  // Resets the MastersDB virtual machine
-  void Reset();
-  void ClearResult();
-
-public:
-  MastersDBVM(mdbDatabase *db);
-
-  uint16 getCodePointer()
-  {
-    return cp;
-  }
-
-  void AddInstruction(uint8 opcode, uint16 data)
-  {
-    bytecode[cp++] = MVI_ENCODE(opcode,data);
-    bytecode[cp++] = (uint8)data;
-  };
-
-  void Store(char* data, uint16 ptr)
-  {
-    memory[ptr] = data;
-  };
-
-  void Decode();
-
-  void Execute()
-  {
-    ClearResult();
-    do {
-      Decode();
-    }
-    while (opcode != MastersDBVM::HALT);
-  }
+  uint8 opcode;               // current decoded operation code
+  uint16 data;                // current decoded data
 
   // Stack operations
 
@@ -225,6 +211,14 @@ public:
   }
 
   /*
+   * Silent push - pushes a value to stack.
+   */
+  void _push(uint16 value)
+  {
+    stack[sp++] = value;
+  }
+
+  /*
    * Silent pop - pops a value from stack and returns it.
    */
   uint16 _pop()
@@ -234,19 +228,79 @@ public:
 
   // Table operations
   void NewTable();
-  void NewColumn();
-  void InsertValue();
   void CreateTable();
   void LoadTable();
-  void InsertRecord();
   void DescribeTable();
 
-  /*
-   * Sets the value of the current table to DATA.
-   */
   void SetTable()
   {
     tp = (uint8)data;
+  }
+
+  // Column operations
+  void NewColumn();
+  void CopyColumn();
+
+  // Source record operations
+  void InsertValue();
+  void InsertRecord();
+  void NextRecord();
+  void CopyRecord();
+
+  // Result operations
+  void NewResult();
+
+  // VM operations
+  void Reset();
+  void ClearResult();
+  void Decode();
+
+  void Jump()
+  {
+    ip = data;
+  }
+
+  /*
+   * Jumps if the stack contains an MVI_FAILURE value
+   */
+  void JumpOnFailure()
+  {
+    if (_pop() == MVI_FAILURE)
+    {
+      ip = data;
+    }
+  }
+
+public:
+  MastersDBVM(mdbDatabase *db);
+
+  uint16 getCodePointer()
+  {
+    return cp;
+  }
+
+  void AddInstruction(uint8 opcode, uint16 data)
+  {
+    bytecode[cp++] = MVI_ENCODE(opcode,data);
+  };
+
+  void RewriteInstruction(uint16 cptr, uint8 opcode, uint16 data)
+  {
+    bytecode[cptr] = MVI_ENCODE(opcode,data);
+  }
+
+  void StoreData(char* data, uint16 ptr)
+  {
+    memory[ptr] = data;
+  };
+
+  void Execute()
+  {
+    ClearResult();
+    do {
+      Decode();
+    }
+    while (opcode != MastersDBVM::HALT);
   }
 
   virtual ~MastersDBVM();

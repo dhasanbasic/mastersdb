@@ -78,7 +78,7 @@ int mdbCreateSystemTables(mdbDatabase *db)
     (*tbl[t]) = (mdbTable*)malloc(sizeof(mdbTable));
     (*tbl[t])->db = db;
     ret = mdbBtreeCreate(&(*tbl[t])->T, 0L, tbl_recordlens[t], 0L);
-    ret = mdbAllocateNode(&(*tbl[t])->T->root, (*tbl[t])->T);
+    ret = mdbAllocateNode(&((*tbl[t])->T->root), (*tbl[t])->T);
     *((*tbl[t])->T->root->is_leaf) = 1L;
     (*tbl[t])->T->key_type = &db->datatypes[4];
 
