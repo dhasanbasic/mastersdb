@@ -36,9 +36,14 @@
  * 17.08.2010
  *  Added the RewriteInstruction method.
  *  Change the byte-code container to be a 16-bit array.
- *  Added new instructions: NOP, CPYCOL, NXTREC, CPYREC, NEWRES, JMP, JMPF.
+ *  Added new instructions: NOP, CPYCOL, NXTREC, CPYREC, JMP, JMPF.
  * 18.08.2010
- *  The mdbVirtualTable structure now contains a map of its column names.
+ *  The mdbVirtualTable structure now contains:
+ *    - a map of its column names,
+ *    - a vector of the column value positions in the source record.
+ *  Added a new instruction: CPYVAL.
+ * 19.08.2010
+ *  Added a new instruction: NEWREC.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -120,10 +125,8 @@ public:
     INSREC, // INSERT RECORD
     NXTREC, // NEXT RECORD
     CPYREC, // COPY RECORD (to result store)
-    /*
-     * Result operations
-     */
-    NEWRES, // NEW RESULT RECORD
+    CPYVAL, // COPY VALUE (to result store)
+    NEWREC, // NEW RESULT RECORD
     /*
      * VM Control operations
      */
@@ -138,17 +141,17 @@ public:
     MVI_NOP,
     MVI_SUCCESS,
     MVI_FAILURE,
-    MVI_ALL = 256
   };
 
   // A virtual table
   struct mdbVirtualTable
   {
     mdbTable *table;              // used for storing table meta-data
-    char *record;                 // used for storing the current record
     mdbBtreeTraversal *traversal; // used for traversing the B-tree
-    uint8 cp;                     // column pointer
-    char *rp;                     // record pointer
+    char *record;                 // used for storing the current record
+    uint32 record_size;           // size of a record
+    uint8 cp;                     // current column
+    vector<uint32> vals;          // column value positions in the record
     mdbCMap cols;                 // used for mapping column names to
                                   // table->columns[] indexes
   };
@@ -156,12 +159,12 @@ public:
   // The MastersDB Query Language result
   struct mdbQueryResult
   {
-    vector<mdbColumnRecord*> columns;   // columns array
-    vector<char*> records;              // records array
-    char *record;                       // current result record
-    uint32 record_size;                 // record size
-    uint8 cp;                           // column pointer
-    char *rp;                           // record pointer
+    vector<mdbColumnRecord*> columns; // columns array
+    vector<char*> records;            // records array
+    char *record;                     // current result record
+    uint32 record_size;               // record size
+    uint8 cp;                         // current column
+    vector<uint32> vals;              // column value positions in the record
   };
 
 private:
@@ -253,14 +256,13 @@ private:
   void NewColumn();
   void CopyColumn();
 
-  // Source record operations
+  // Source/Destination record operations
   void InsertValue();
   void InsertRecord();
   void NextRecord();
   void CopyRecord();
-
-  // Result operations
-  void NewResult();
+  void CopyValue();
+  void NewRecord();
 
   // VM operations
   void Reset();

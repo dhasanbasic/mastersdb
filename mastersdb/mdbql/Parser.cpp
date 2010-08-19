@@ -251,8 +251,15 @@ void Parser::MQLValue() {
 
 void Parser::MQLColumns() {
 		if (la->kind == 24) {
+			string *table = NULL;                        
+			string *column = NULL; 
 			Get();
-			select->UseAllColumns();                     
+			column = new string("*");                    
+			if (select->MapColumn(column, table, dp))    
+			{                                            
+			dp++;                                      
+			};                                           
+			delete column;                               
 		} else if (la->kind == 2 || la->kind == 3) {
 			MQLColumn();
 			while (la->kind == 11) {

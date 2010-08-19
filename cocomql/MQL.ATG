@@ -33,6 +33,7 @@
  *  Added rules for DESC statement.
  * 16.08.2010
  *  Added rules for SELECT.
+ *  Added support for multicolumn select.
  */
 
 extern "C" {
@@ -297,8 +298,15 @@ MQLSelectStatement =       (. dp = 0;          .)
 /*
  * MQLColumns
  */
-MQLColumns =
-  '*'                      (. select->UseAllColumns();                     .)
+MQLColumns =               (. string *table = NULL;                        .)
+                           (. string *column = NULL; .)
+                           
+  '*'                      (. column = new string("*");                    .)
+                           (. if (select->MapColumn(column, table, dp))    .)
+                           (. {                                            .)
+                           (.   dp++;                                      .)
+                           (. };                                           .)
+                           (. delete column;                               .)
   |
   MQLColumn {',' MQLColumn}.
 

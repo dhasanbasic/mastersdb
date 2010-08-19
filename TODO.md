@@ -5,7 +5,8 @@
 
 Active development
 ------------------
-  * implement SELECT
+  * implement SELECT (single-table, with WHERE)
+  * implement SELECT (multi-table, with WHERE)
   
 Pending
 -------
@@ -95,7 +96,9 @@ Finished
   
   * implement INSERT INTO
 
-  * implement DESC
+  * implement DESC/DESCRIBE
+  
+  * implement SELECT (single-table, without WHERE)
 
 Optimizations
 -------------

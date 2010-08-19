@@ -24,6 +24,8 @@
  *  Initial version of file.
  * 18.08.2010
  *  Moved mdbCMap type definitions to MastersDBVM.h.
+ *  No more need for the allColumns flag.
+ *  GenSingleTableSelect() re-factoring.
  */
 
 #ifndef MQLSELECT_H_
@@ -51,18 +53,15 @@ private:
   string MDB_DEFAULT;
   vector<mdbDestinationColumn> destColumns;
   mdbTMap tables;
-  bool allColumns;
   MastersDBVM *VM;
   uint16 dptr;
 
-  void GenerateSelectBytecode();
+  void GenSingleTableSelect();
 
 public:
   MQLSelect();
-  void UseAllColumns();
   bool MapColumn(string *column, string *table, uint16 dp);
   void MapTable(string *table, uint16 tp);
-  void RemapColumns();
   void Reset();
   void GenerateBytecode();
 

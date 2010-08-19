@@ -14,7 +14,7 @@ int main(int argc, char **argv)
 
   setlocale(LC_CTYPE, "en_US.utf8");
 
-  const char *MQL_QUERY[8] = {
+  const char *MQL_QUERY[9] = {
       "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));",
       "INSERT INTO Studenti VALUES('Dinko','Hasanbašić');",
       "INSERT INTO Studenti VALUES('Amar','Trnka');",
@@ -22,7 +22,9 @@ int main(int argc, char **argv)
       "INSERT INTO Studenti VALUES('Dino','Merzić');",
       "INSERT INTO Studenti VALUES('Nedim','Šrndić');",
       "DESCRIBE Studenti;",
-      "SELECT * FROM Studenti;"};
+      "SELECT * FROM Studenti;",
+      "SELECT Ime, Prezime FROM Studenti;",
+  };
 //      "SELECT Ime, Prezime, BrIndex FROM Studenti;",
 //      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Sefovi.Odjel FROM Zaposleni, Sefovi;"
 //  };
@@ -33,7 +35,7 @@ int main(int argc, char **argv)
   select = new MQLSelect();
   select->setVM(VM);
 
-  for (i = 0; i < 8; i++)
+  for (i = 0; i < 9; i++)
   {
     s = new Scanner((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
     p = new Parser(s);

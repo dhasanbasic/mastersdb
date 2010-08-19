@@ -22,6 +22,9 @@
  * ----------------
  * 16.08.2010
  *  Initial version of file.
+ * 18.08.2010
+ *  No more need for the allColumns flag.
+ *  GenSingleTableSelect() re-factoring.
  */
 
 #include "MQLSelect.h"
@@ -32,15 +35,6 @@ namespace MDB
 MQLSelect::MQLSelect()
 {
   MDB_DEFAULT = ".Default";
-  allColumns = false;
-}
-
-/*
- * Sets the allTables flag
- */
-void MQLSelect::UseAllColumns()
-{
-  allColumns = true;
 }
 
 /*
@@ -52,6 +46,8 @@ bool MQLSelect::MapColumn(string *column, string *table, uint16 dp)
   string cColumn = *column;
   mdbCMap *columns;
 
+  char *name;
+
   mdbTMapIter t;
   mdbCMapResult c;
 
@@ -61,6 +57,12 @@ bool MQLSelect::MapColumn(string *column, string *table, uint16 dp)
     // create a new column map
     columns = new mdbCMap();
     (*columns)[cColumn] = dp;
+    // store the column name in the VM memory
+    name = (char*)malloc(cColumn.length() + 4);
+    cColumn.copy(name + 4, cColumn.length());
+    *((uint32*)name) = cColumn.length();
+    VM->StoreData(name, dp);
+    // store the new column map in the table
     tables[cTable] = mdbTMapItem(0, columns);
   }
   // otherwise, insert the column name in the appropriate column map
@@ -68,6 +70,14 @@ bool MQLSelect::MapColumn(string *column, string *table, uint16 dp)
   {
     columns = t->second.second;
     c = columns->insert(mdbCMapPair(cColumn, dp));
+    // if the insert succeeded, store the column name in the VM memory
+    if (c.second)
+    {
+      name = (char*)malloc(cColumn.length() + 4);
+      cColumn.copy(name + 4, cColumn.length());
+      *((uint32*)name) = cColumn.length();
+      VM->StoreData(name, dp);
+    }
     destColumns.push_back(mdbDestinationColumn(cTable, cColumn));
     return (c.second);
   }
@@ -86,35 +96,29 @@ void MQLSelect::MapTable(string *table, uint16 tp)
   mdbTMapIter iter;
   uint16 i;
   string cTable = *table;
-  if (allColumns)
+
+  if (tables.size() == 1)
   {
-    tables[cTable] = mdbTMapItem(tp, NULL);
-    for (i = 0; i < destColumns.size(); i++)
-    {
-      destColumns[i].first = cTable;
-    }
-  }
-  else
-  {
-    if (tables.size() == 1)
+    iter = tables.begin();
+    if (iter->first == MDB_DEFAULT)
     {
       ti = tables[MDB_DEFAULT];
       ti.first = tp;
       tables[cTable] = ti;
       tables.erase(MDB_DEFAULT);
-      for (i = 0; i < destColumns.size(); i++)
+    }
+    for (i = 0; i < destColumns.size(); i++)
+    {
+      if (destColumns[i].first == MDB_DEFAULT)
       {
-        if (destColumns[i].first == MDB_DEFAULT)
-        {
-          destColumns[i].first = cTable;
-        }
+        destColumns[i].first = cTable;
       }
     }
-    else
-    {
-      iter = tables.find(cTable);
-      iter->second.first = tp;
-    }
+  }
+  else
+  {
+    iter = tables.find(cTable);
+    iter->second.first = tp;
   }
 }
 
@@ -128,7 +132,6 @@ void MQLSelect::Reset()
   }
   tables.clear();
   destColumns.clear();
-  allColumns = false;
 }
 
 /*
@@ -137,49 +140,104 @@ void MQLSelect::Reset()
  */
 void MQLSelect::GenerateBytecode()
 {
-  // if '*' was specified instead of column list...
-  if (allColumns)
-  {
-    GenerateSelectBytecode();
-  }
+  // TODO: add check for if there was a WHERE clause.
+  GenSingleTableSelect();
 }
 
 /*
  * Generates the MVI byte-code for "SELECT * FROM table;"
  */
-void MQLSelect::GenerateSelectBytecode()
+void MQLSelect::GenSingleTableSelect()
 {
+  uint8 c;
   mdbTMapIter iter;
   uint32 len;
   uint16 jmp, fail;
-  char *table;
+  uint16 pTable, pColumn;
+  bool asterisk = false;
 
-  // retrieve the one and only table and store its name in the VM memory
+  char *name;
+
+  // Phase 1 - load the table
+  // ------------------------------------------------------------------
   iter = tables.begin();
-  len = iter->first.length();
-  table = (char*)malloc(len + 4);
-  iter->first.copy(table + 4, len);
-  *((uint32*)table) = len;
-  VM->StoreData(table, dptr);
-  // USE TABLE and LOAD TABLE
+  // SET TABLE
   VM->AddInstruction(MastersDBVM::SETTBL, iter->second.first);
+  // store the table name
+  len = iter->first.length();
+  name = (char*) malloc(len + 4);
+  iter->first.copy(name + 4, len);
+  *((uint32*)name) = len;
+  VM->StoreData(name, dptr);
+  // LOAD TABLE with name memory[DATA]
   VM->AddInstruction(MastersDBVM::LDTBL, dptr++);
-  // COPY COLUMN (all columns of tables[DATA].columns to result columns)
-    VM->AddInstruction(MastersDBVM::CPYCOL, MastersDBVM::MVI_ALL);
-  // NEXT RECORD
+  // ------------------------------------------------------------------
+
+  // Phase 2 - Define the destination columns
+  // based on the selected columns
+  // ------------------------------------------------------------------
+  for (c = 0; c < destColumns.size(); c++)
+  {
+    if (destColumns[c].second == "*") asterisk = true;
+    // retrieve the table and column name pointers
+    pTable = tables[destColumns[c].first].first;
+    pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
+    // SET TABLE
+    VM->AddInstruction(MastersDBVM::SETTBL, pTable);
+    // COPY COLUMN (to result columns)
+    VM->AddInstruction(MastersDBVM::CPYCOL, pColumn);
+  }
+  // ------------------------------------------------------------------
+
+  // Phase 3 - The record retrieval loop (: Yes! It's a loop :)
+  // ------------------------------------------------------------------
+  // saves the current code pointer
   jmp = VM->getCodePointer();
+
+  // NEXT RECORD
   VM->AddInstruction(MastersDBVM::NXTREC, iter->second.first);
-  // place-holder instruction, will be rewritten: JUMP IF FAILURE
+
+  // NO OPERATION (place-holder for JUMP ON FAILURE)
   fail = VM->getCodePointer();
   VM->AddInstruction(MastersDBVM::NOP, MastersDBVM::MVI_NOP);
-  // COPY RECORD of tables[DATA] to the result store
-  VM->AddInstruction(MastersDBVM::CPYREC, iter->second.first);
-  VM->AddInstruction(MastersDBVM::JMP, jmp);
-  // rewrites the NOP operation from above to be a
-  // jump to the current instruction
-  VM->RewriteInstruction(fail, MastersDBVM::JMPF, VM->getCodePointer());
-  // the last instruction will be HALT and is added
-  // automatically by the parser
+
+  // if '*' as column name was specified
+  if (asterisk)
+  {
+    // COPY RECORD of tables[DATA] to the result store
+    VM->AddInstruction(MastersDBVM::CPYREC, iter->second.first);
+    // JUMP to instruction
+    VM->AddInstruction(MastersDBVM::JMP, jmp);
+    // rewrites the NOP operation from above to be a
+    // jump to the current instruction
+    VM->RewriteInstruction(fail, MastersDBVM::JMPF, VM->getCodePointer());
+  }
+  // otherwise, the source data needs to by copied column by column
+  else
+  {
+    // NEW RESULT RECORD
+    VM->AddInstruction(MastersDBVM::NEWREC, MastersDBVM::MVI_SUCCESS);
+    // copies source data of current table, column by column
+    for (c = 0; c < destColumns.size(); c++)
+    {
+      // retrieve the table and column name pointers
+      pTable = tables[destColumns[c].first].first;
+      pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
+      // COPY VALUE of column memory[DATA] (to current result columns)
+      VM->AddInstruction(MastersDBVM::CPYVAL, pColumn);
+    }
+    // JUMP to instruction
+    VM->AddInstruction(MastersDBVM::JMP, jmp);
+    // rewrites the NOP operation from above to be a
+    // jump to the current instruction
+    VM->RewriteInstruction(fail, MastersDBVM::JMPF, VM->getCodePointer());
+    // NEW RESULT RECORD (this is needed to ensure that the last
+    // result record is added to the result records store)
+    VM->AddInstruction(MastersDBVM::NEWREC, MastersDBVM::MVI_SUCCESS);
+  }
+  // ------------------------------------------------------------------
+
+  // the last instruction will be HALT and is added by the parser
   // VM->AddInstruction(MastersDBVM::HALT, MastersDBVM::MVI_SUCCESS);
 }
 
