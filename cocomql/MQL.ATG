@@ -37,10 +37,10 @@
  */
 
 extern "C" {
-  #include "../mastersdb.h"
+  #include "../mdb.h"
 }
 
-#include "../mdbvm/MastersDBVM.h"
+#include "../mvm/MastersDBVM.h"
 #include "MQLSelect.h"
 
 #include <string>

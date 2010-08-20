@@ -1,5 +1,5 @@
 
-#include "mdbql/Parser.h"
+#include "mdb/mql/Parser.h"
 
 int main(int argc, char **argv)
 {
