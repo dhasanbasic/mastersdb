@@ -95,7 +95,7 @@ void setSelect (MQLSelect *select)
 /* ignores case */
 
 
-	Parser(Scanner *scanner);
+	Parser();
 	~Parser();
 	void SemErr(const wchar_t* msg);
 
@@ -114,7 +114,7 @@ void setSelect (MQLSelect *select)
 	void MQLColumn();
 	void MQLTable();
 
-	void Parse();
+	void Parse(const unsigned char* buf, int len);
 
 }; // end Parser
 

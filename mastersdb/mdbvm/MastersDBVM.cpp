@@ -43,6 +43,8 @@
  *  Implemented: CPYVAL : CopyValue().
  * 19.08.2010
  *  Implemented: NEWREC : NewRecord().
+ * 20.08.2010
+ *  Fixed an VM initialization bug.
  */
 
 #include "MastersDBVM.h"
@@ -59,7 +61,7 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
   sp = 0;
   tp = 0;
 
-  memset(memory, 0, MDB_VM_MEMORY_SIZE);
+  memset(memory, 0, sizeof(memory));
 
   for (i = 0; i < MDB_VM_TABLES_SIZE; i++)
   {
@@ -91,7 +93,7 @@ void MastersDBVM::Reset()
       free(memory[i]);
     }
   }
-  memset(memory, 0, MDB_VM_MEMORY_SIZE);
+  memset(memory, 0, sizeof(memory));
 
   // free memory used by the virtual tables
   for (i = 0; i < MDB_VM_TABLES_SIZE; i++)

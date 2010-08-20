@@ -3,7 +3,6 @@
 
 int main(int argc, char **argv)
 {
-  Scanner *s;
   Parser *p;
   uint8 i;
   int ret;
@@ -30,24 +29,23 @@ int main(int argc, char **argv)
 //  };
 
   ret = mdbCreateDatabase(&db, "test.mrdb");
-
   VM = new MastersDBVM(db);
   select = new MQLSelect();
   select->setVM(VM);
+  p = new Parser();
+  p->setVM(VM);
+  p->setSelect(select);
 
   for (i = 0; i < 9; i++)
   {
-    s = new Scanner((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
-    p = new Parser(s);
     p->setVM(VM);
     p->setSelect(select);
     printf("QUERY:\n\t%s\n\n", MQL_QUERY[i]);
-    p->Parse();
+    p->Parse((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
     VM->Execute();
-    delete s;
-    delete p;
   }
 
+  delete p;
   delete select;
   delete VM;
   ret = mdbCloseDatabase(db);

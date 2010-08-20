@@ -312,25 +312,28 @@ void Parser::MQLTable() {
 
 
 
-void Parser::Parse() {
+void Parser::Parse(const unsigned char* buf, int len) {
+    delete scanner;
+    delete errors;
+	this->scanner = new Scanner(buf, len);
+	errors = new Errors();
+	minErrDist = 2;
+	errDist = minErrDist;
+	
 	t = NULL;
-	la = dummyToken = new Token();
-	la->val = coco_string_create(L"Dummy Token");
 	Get();
 	MQL();
 
 	Expect(0);
 }
 
-Parser::Parser(Scanner *scanner) {
+Parser::Parser() {
 	maxT = 25;
 
-	dummyToken = NULL;
-	t = la = NULL;
-	minErrDist = 2;
-	errDist = minErrDist;
-	this->scanner = scanner;
-	errors = new Errors();
+	la = dummyToken = new Token();
+	la->val = coco_string_create(L"Dummy Token");
+	scanner = NULL;
+	errors = NULL;
 }
 
 bool Parser::StartOf(int s) {
@@ -347,6 +350,7 @@ bool Parser::StartOf(int s) {
 }
 
 Parser::~Parser() {
+    delete scanner;
 	delete errors;
 	delete dummyToken;
 }

@@ -9,22 +9,10 @@
 #include <string.h>
 #include <wchar.h>
 
-// io.h and fcntl are used to ensure binary read from streams on windows
-#if _MSC_VER >= 1300
-#include <io.h>
-#include <fcntl.h>
-#endif
+#include "Buffer.h"
 
-#if _MSC_VER >= 1400
-#define coco_swprintf swprintf_s
-#elif _MSC_VER >= 1300
-#define coco_swprintf _snwprintf
-#else
-// assume every other compiler knows swprintf
-#define coco_swprintf swprintf
-#endif
+using namespace MDB;
 
-#define COCO_WCHAR_MAX 65535
 #define MIN_BUFFER_LENGTH 1024
 #define MAX_BUFFER_LENGTH (64*MIN_BUFFER_LENGTH)
 #define HEAP_BLOCK_SIZE (64*1024)
@@ -68,47 +56,6 @@ public:
 
 	Token();
 	~Token();
-};
-
-class Buffer {
-// This Buffer supports the following cases:
-// 1) seekable stream (file)
-//    a) whole stream in buffer
-//    b) part of stream in buffer
-// 2) non seekable stream (network, console)
-private:
-	unsigned char *buf; // input buffer
-	int bufCapacity;    // capacity of buf
-	int bufStart;       // position of first byte in buffer relative to input stream
-	int bufLen;         // length of buffer
-	int fileLen;        // length of input stream (may change if the stream is no file)
-	int bufPos;         // current position in buffer
-	FILE* stream;       // input stream (seekable)
-	bool isUserStream;  // was the stream opened by the user?
-	
-	int ReadNextStreamChunk();
-	bool CanSeek();     // true if stream can be seeked otherwise false
-	
-public:
-	static const int EoF = COCO_WCHAR_MAX + 1;
-
-	Buffer(FILE* s, bool isUserStream);
-	Buffer(const unsigned char* buf, int len);
-	Buffer(Buffer *b);
-	virtual ~Buffer();
-	
-	virtual void Close();
-	virtual int Read();
-	virtual int Peek();
-	virtual wchar_t* GetString(int beg, int end);
-	virtual int GetPos();
-	virtual void SetPos(int value);
-};
-
-class UTF8Buffer : public Buffer {
-public:
-	UTF8Buffer(Buffer *b) : Buffer(b) {};
-	virtual int Read();
 };
 
 //-----------------------------------------------------------------------------------
@@ -241,8 +188,6 @@ public:
 	Buffer *buffer;   // scanner buffer
 	
 	Scanner(const unsigned char* buf, int len);
-	Scanner(const wchar_t* fileName);
-	Scanner(FILE* s);
 	~Scanner();
 	Token* Scan();
 	Token* Peek();
