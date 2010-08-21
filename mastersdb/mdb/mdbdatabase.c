@@ -163,6 +163,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     l_db->tables->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
     l_db->tables->T = T;
 
@@ -171,6 +172,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     l_db->columns->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
     l_db->columns->T = T;
 
@@ -179,6 +181,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     l_db->indexes->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
     l_db->indexes->T = T;
 

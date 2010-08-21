@@ -44,6 +44,8 @@
  *  Added a new instruction: CPYVAL.
  * 19.08.2010
  *  Added a new instruction: NEWREC.
+ * 21.08.2010
+ *  The results from executions are now returned by Execute().
  */
 
 #ifndef MASTERSDBVM_H_
@@ -185,7 +187,7 @@ private:
   mdbVirtualTable tables[MDB_VM_TABLES_SIZE];
   uint8 tp;                   // current (virtual) table pointer
 
-  mdbQueryResult result;      // MQL result memory
+  mdbQueryResult *result;     // MQL result memory
 
   mdbDatabase *db;            // MastersDB database (mdbDatabase*)
 
@@ -266,7 +268,6 @@ private:
 
   // VM operations
   void Reset();
-  void ClearResult();
   void Decode();
 
   void Jump()
@@ -286,7 +287,12 @@ private:
   }
 
 public:
-  MastersDBVM(mdbDatabase *db);
+  MastersDBVM();
+
+  void setDatabase(mdbDatabase *db)
+  {
+    this->db = db;
+  }
 
   uint16 getCodePointer()
   {
@@ -308,13 +314,20 @@ public:
     memory[ptr] = data;
   };
 
-  void Execute()
+  mdbQueryResult* Execute()
   {
-    ClearResult();
+    mdbQueryResult *res = NULL;
     do {
       Decode();
     }
     while (opcode != MastersDBVM::HALT);
+
+    if (result->columns.size() > 0)
+    {
+      res = result;
+      result = NULL;
+    }
+    return res;
   }
 
   virtual ~MastersDBVM();

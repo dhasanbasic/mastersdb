@@ -1,180 +1,53 @@
 
-#include "mdb/mql/Parser.h"
+#include <iostream>
+#include "MastersDB.h"
+
+using namespace MastersDB;
+using namespace std;
 
 int main(int argc, char **argv)
 {
-  Parser *p;
-  uint8 i;
-  int ret;
+  MdbDatabase *db;
+  MdbResultSet *rs;
 
-  mdbDatabase *db;
-  MastersDBVM *VM;
-  MQLSelect *select;
+  db = MdbDatabase::CreateDatabase("test.mrdb");
 
-  setlocale(LC_CTYPE, "en_US.utf8");
-
-  const char *MQL_QUERY[9] = {
-      "CREATE TABLE Studenti(Ime STRING(20),Prezime STRING(50));",
-      "INSERT INTO Studenti VALUES('Dinko','Hasanbašić');",
-      "INSERT INTO Studenti VALUES('Amar','Trnka');",
-      "INSERT INTO Studenti VALUES('Denis','Hasanbašić');",
-      "INSERT INTO Studenti VALUES('Dino','Merzić');",
-      "INSERT INTO Studenti VALUES('Nedim','Šrndić');",
-      "DESCRIBE Studenti;",
-      "SELECT * FROM Studenti;",
-      "SELECT Ime, Prezime FROM Studenti;",
-  };
-//      "SELECT Ime, Prezime, BrIndex FROM Studenti;",
-//      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Sefovi.Odjel FROM Zaposleni, Sefovi;"
-//  };
-
-  ret = mdbCreateDatabase(&db, "test.mrdb");
-  VM = new MastersDBVM(db);
-  select = new MQLSelect();
-  select->setVM(VM);
-  p = new Parser();
-  p->setVM(VM);
-  p->setSelect(select);
-
-  for (i = 0; i < 9; i++)
+  rs = db->ExecuteMQL("CREATE TABLE Osobe (Ime STRING(20), Prezime STRING(50));");
+  if (rs == NULL)
   {
-    p->setVM(VM);
-    p->setSelect(select);
-    printf("QUERY:\n\t%s\n\n", MQL_QUERY[i]);
-    p->Parse((byte*)MQL_QUERY[i], strlen(MQL_QUERY[i]));
-    VM->Execute();
+    cout << "Table successfully created!" << endl;
+    cout << endl;
   }
 
-  delete p;
-  delete select;
-  delete VM;
-  ret = mdbCloseDatabase(db);
+  rs = db->ExecuteMQL("INSERT INTO Osobe ('Dinko','Hasanbašić');");
+  if (rs == NULL)
+  {
+    cout << "Record sucessfully inserted!" << endl;
+    cout << endl;
+  }
+
+  delete db;
+
+  db = MdbDatabase::OpenDatabase("test.mrdb");
+
+  rs = db->ExecuteMQL("SELECT * FROM Osobe;");
+  if (rs != NULL)
+  {
+    cout << "Retrieved " << rs->GetRecordCount() << " record!" << endl;
+    cout << endl;
+    do
+    {
+      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << endl;
+    }
+    while (rs->ToNext());
+    delete rs;
+    cout << endl;
+  }
+
+  delete db;
 
   return 0;
 }
-
-//int main(int argc, char **argv)
-//{
-//  mdbDatabase *db;
-//  Scanner *s;
-//  Parser *p;
-//
-//  MastersDBVM *VM;
-//  int ret;
-//
-//  const char *MQL_CREATE =
-//
-//  const char *MQL_INSERT =
-//
-//  const char *MQL_DESCRIBE =
-//
-//  // creates a new MastersDB database and virtual machine
-//  ret = mdbCreateDatabase(&db, "test.mrdb");
-//  VM = new MastersDBVM(db);
-//
-//  // CREATE
-//  s = new Scanner((byte*)MQL_CREATE, strlen(MQL_CREATE));
-//  p = new Parser(s);
-//  p->setVM(VM);
-//  p->Parse();
-//  VM->Execute();
-//  delete s;
-//  delete p;
-//
-//  // INSERT
-//  s = new Scanner((byte*)MQL_INSERT, strlen(MQL_INSERT));
-//  p = new Parser(s);
-//  p->setVM(VM);
-//  p->Parse();
-//  VM->Execute();
-//  delete s;
-//  delete p;
-//
-//  // DESCRIBE
-//  s = new Scanner((byte*)MQL_DESCRIBE, strlen(MQL_DESCRIBE));
-//  p = new Parser(s);
-//  p->setVM(VM);
-//  p->Parse();
-//  VM->Execute();
-//  delete s;
-//  delete p;
-//
-//  delete VM;
-//  ret = mdbCloseDatabase(db);
-//
-//  return 0;
-//}
-
-//extern "C" {
-//  #include "mastersdb.h"
-//}
-//
-//#include "mdbvm/MastersDBVM.h"
-//
-//using namespace MDB;
-//
-//int main(int argc, char **argv)
-//{
-//
-//  mdbDatabase *db;
-//  mdbTable *tbl;
-//  MastersDBVM *VM;
-//  int ret;
-//
-//  // Table meta data
-//
-//  char *name = new char[12];
-//  strcpy(name + 4, "STUDENTI");
-//  *((uint32*)name) = strlen("STUDENTI");
-//
-//  mdbColumn *col1 = new mdbColumn;
-//  mdbColumn *col2 = new mdbColumn;
-//
-//  strcpy(col1->name + 4, "IME");
-//  *((uint32*)col1->name) = strlen("IME");
-//  col1->indexed = 0;
-//  col1->length = 20L;
-//  col1->type = 4;
-//
-//  strcpy(col2->name + 4, "PREZIME");
-//  *((uint32*)col2->name) = strlen("PREZIME");
-//  col2->indexed = 0;
-//  col2->length = 30L;
-//  col2->type = 4;
-//
-//  // DB and VM operations
-//
-//  ret = mdbCreateDatabase(&db, "test.mrdb");
-//
-//  VM = new MastersDBVM(db);
-//  VM->Store(name, 0);
-//  VM->Store((char*)col1, 1);
-//  VM->Store((char*)col2, 2);
-//
-//  VM->AddInstruction(MastersDBVM::PUSHM, 2);
-//  VM->AddInstruction(MastersDBVM::NEWTBL, 0);
-//  VM->AddInstruction(MastersDBVM::NEWCOL, 1);
-//  VM->AddInstruction(MastersDBVM::NEWCOL, 2);
-//  VM->AddInstruction(MastersDBVM::CRTTBL, 0);
-//
-//  VM->Decode();
-//  VM->Decode();
-//  VM->Decode();
-//  VM->Decode();
-//  VM->Decode();
-//
-//  delete VM;
-//
-//  ret = mdbCloseDatabase(db);
-//
-//  ret = mdbOpenDatabase(&db, "test.mrdb");
-//  ret = mdbLoadTable(db, &tbl, "STUDENTI");
-//  ret = mdbFreeTable(tbl);
-//  ret = mdbCloseDatabase(db);
-//
-//
-//  return 0;
-//}
 
 //#define BTREE_T             5
 //#define BTREE_RECORD_SIZE   5

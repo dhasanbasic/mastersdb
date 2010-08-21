@@ -5,14 +5,14 @@
 
 Active development
 ------------------
-  * implement SELECT (single-table, with WHERE)
-  * implement SELECT (multi-table, with WHERE)
+  * design and implement an object oriented wrapper around the database API
   
 Pending
 -------
   * extend the dummy implementations of mbdBtree{Read,Write}Node functions
-  * design and implement an object oriented wrapper around the database API
   * design and implement the B+-tree structure (secondary indexes)
+  * implement SELECT (single-table, with WHERE)
+  * implement SELECT (multi-table, with WHERE)
 
 Finished
 --------
@@ -44,7 +44,7 @@ Finished
 
   * design and implement the three system tables
 
-    # .TABLES
+    # .Tables
       -----------------------------------------------------------------
       COLUMN   | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -54,7 +54,7 @@ Finished
       -----------------------------------------------------------------
       - Record size: 64 bytes
 
-    # .COLUMNS
+    # .Columns
       -----------------------------------------------------------------
       COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -66,7 +66,7 @@ Finished
       -----------------------------------------------------------------
       - Record size: 128 bytes
 
-    # .INDEXES
+    # .Indexes
       -----------------------------------------------------------------
       COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------

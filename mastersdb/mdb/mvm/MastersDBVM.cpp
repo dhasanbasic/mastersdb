@@ -45,6 +45,8 @@
  *  Implemented: NEWREC : NewRecord().
  * 20.08.2010
  *  Fixed an VM initialization bug.
+ * 21.08.2010
+ *  The results from executions are now returned by Execute().
  */
 
 #include "MastersDBVM.h"
@@ -52,7 +54,7 @@
 namespace MDB
 {
 
-MastersDBVM::MastersDBVM(mdbDatabase *db)
+MastersDBVM::MastersDBVM()
 {
   uint16 i;
 
@@ -60,6 +62,8 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
   cp = 0;
   sp = 0;
   tp = 0;
+
+  setlocale(LC_CTYPE, "en_US.utf8");
 
   memset(memory, 0, sizeof(memory));
 
@@ -71,11 +75,13 @@ MastersDBVM::MastersDBVM(mdbDatabase *db)
     tables[i].table = NULL;
   }
 
-  result.cp = 0;
-  result.vals.push_back(0);
-  result.record_size = 0;
-  result.record = NULL;
-  this->db = db;
+  result = new mdbQueryResult;
+  result->cp = 0;
+  result->record = NULL;
+  result->record_size = 0;
+  result->vals.push_back(0);
+
+  db = NULL;
 }
 
 /*
@@ -116,7 +122,17 @@ void MastersDBVM::Reset()
     }
   }
 
-  // reset all pointers
+  // allocate a new result storage, if needed
+  if (result == NULL)
+  {
+    result = new mdbQueryResult;
+    result->cp = 0;
+    result->record = NULL;
+    result->record_size = 0;
+    result->vals.push_back(0);
+  }
+
+  // reset all "pointers"
   tp = 0;
   ip = 0;
   cp = 0;
@@ -125,7 +141,25 @@ void MastersDBVM::Reset()
 
 MastersDBVM::~MastersDBVM()
 {
-  ClearResult();
+  uint32 i;
+  // if there was a result, delete it
+  if (result != NULL)
+  {
+    if (result->records.size() > 0)
+    {
+      for (i = 0; i < result->columns.size(); i++)
+      {
+        delete result->columns[i];
+      }
+      for (i = 0; i < result->records.size(); i++)
+      {
+        delete[] result->records[i];
+      }
+      delete[] result->record;
+      result->vals.push_back(0);
+    }
+    delete result;
+  }
 }
 
 void MastersDBVM::Decode()
@@ -161,33 +195,6 @@ void MastersDBVM::Decode()
     case HALT:    Reset(); break;
     default:
       break;
-  }
-}
-
-/*
- * Resets the results
- */
-void MastersDBVM::ClearResult()
-{
-  uint32 i;
-  if (result.records.size() > 0)
-  {
-    for (i = 0; i < result.columns.size(); i++)
-    {
-      delete result.columns[i];
-    }
-    for (i = 0; i < result.records.size(); i++)
-    {
-      delete[] result.records[i];
-    }
-    delete[] result.record;
-    result.records.clear();
-    result.columns.clear();
-    result.vals.clear();
-    result.vals.push_back(0);
-    result.cp = 0;
-    result.record = NULL;
-    result.record_size = 0;
   }
 }
 
@@ -320,7 +327,7 @@ void MastersDBVM::InsertRecord()
 }
 
 /*
- * Returns the structure of a given table as a query result.
+ * Returns the structure of a given table as a query result->
  */
 void MastersDBVM::DescribeTable()
 {
@@ -343,48 +350,48 @@ void MastersDBVM::DescribeTable()
     *((uint32*)col->name) = len;
     col->type = desc_types[c];
     col->length = desc_lengths[c];
-    result.columns.push_back(col);
+    result->columns.push_back(col);
   }
 
   // determine result record size
   len = 0;
   for (c = 0; c < 4; c++)
   {
-    col = result.columns[c];
+    col = result->columns[c];
     type = db->datatypes + col->type;
     len += (type->header > 0) ?
         (col->length * type->size + type->header) : (type->size);
-    result.vals.push_back(len);
+    result->vals.push_back(len);
   }
 
-  result.record_size = len;
+  result->record_size = len;
   // adds the results
   for (r = 0; r < tables[tp].table->rec.columns; r++)
   {
-    result.cp = 0;
-    result.record = new char[result.record_size];
-    memset(result.record, 0, result.record_size);
+    result->cp = 0;
+    result->record = new char[result->record_size];
+    memset(result->record, 0, result->record_size);
     col = tables[tp].table->columns + r;
     type = db->datatypes + col->type;
 
     // insert the column name
-    memcpy(result.record + result.vals[result.cp++],
+    memcpy(result->record + result->vals[result->cp++],
         col->name, *((uint32*)col->name) + 4L);
 
     // insert the column data type name
     len = strlen(type->name);
-    *((uint32*)(result.record + result.vals[result.cp])) = len;
-    strncpy(result.record + result.vals[result.cp++] + 4, type->name, len);
+    *((uint32*)(result->record + result->vals[result->cp])) = len;
+    strncpy(result->record + result->vals[result->cp++] + 4, type->name, len);
 
     // insert the column length information
-    *((uint32*)(result.record + result.vals[result.cp++])) = col->length;
+    *((uint32*)(result->record + result->vals[result->cp++])) = col->length;
 
     // insert the column indexed information
-    *((byte*)(result.record + result.vals[result.cp++])) = col->indexed;
+    *((byte*)(result->record + result->vals[result->cp++])) = col->indexed;
 
-    result.records.push_back(result.record);
-    result.record = NULL;
-    result.cp = 0;
+    result->records.push_back(result->record);
+    result->record = NULL;
+    result->cp = 0;
   }
 }
 
@@ -411,16 +418,16 @@ void MastersDBVM::CopyColumn()
       type = db->datatypes + src->type;
 
       memcpy(dest, src, sizeof(mdbColumnRecord));
-      result.columns.push_back(dest);
+      result->columns.push_back(dest);
 
       size += (type->header > 0)
           ? (src->length * type->size + type->header) : (type->size);
-      result.vals.push_back(size);
+      result->vals.push_back(size);
     }
     // in this case the full result record size in known, so
     // a new result record store can be allocated
-    result.record_size = size;
-    result.record = new char[size];
+    result->record_size = size;
+    result->record = new char[size];
   }
   else
   {
@@ -429,12 +436,12 @@ void MastersDBVM::CopyColumn()
     dest = new mdbColumnRecord;
     type = db->datatypes + src->type;
     memcpy(dest, src, sizeof(mdbColumnRecord));
-    result.columns.push_back(dest);
+    result->columns.push_back(dest);
 
-    size = result.vals[result.cp++] + ((type->header > 0)
+    size = result->vals[result->cp++] + ((type->header > 0)
         ? (src->length * type->size + type->header) : (type->size));
-    result.vals.push_back(size);
-    result.record_size = size;
+    result->vals.push_back(size);
+    result->record_size = size;
   }
 }
 
@@ -444,10 +451,10 @@ void MastersDBVM::CopyColumn()
  */
 void MastersDBVM::CopyRecord()
 {
-  memcpy(result.record, tables[data].record, result.record_size);
-  result.records.push_back(result.record);
-  result.record = new char[result.record_size];
-  result.cp = 0;
+  memcpy(result->record, tables[data].record, result->record_size);
+  result->records.push_back(result->record);
+  result->record = new char[result->record_size];
+  result->cp = 0;
 }
 
 /*
@@ -464,7 +471,7 @@ void MastersDBVM::CopyValue()
 
   size = ((type->header > 0)
       ? (col->length * type->size + type->header) : (type->size));
-  memcpy(result.record + result.vals[result.cp++],
+  memcpy(result->record + result->vals[result->cp++],
       tables[tp].record + tables[tp].vals[c], size);
 }
 
@@ -498,12 +505,12 @@ void MastersDBVM::NextRecord()
  */
 void MastersDBVM::NewRecord()
 {
-  if (result.record != NULL)
+  if (result->record != NULL)
   {
-    result.records.push_back(result.record);
+    result->records.push_back(result->record);
   }
-  result.record = new char[result.record_size];
-  result.cp = 0;
+  result->record = new char[result->record_size];
+  result->cp = 0;
 }
 
 } // END of NAMESPACE

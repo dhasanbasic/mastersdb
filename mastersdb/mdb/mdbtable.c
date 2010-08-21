@@ -128,7 +128,7 @@ int mdbLoadSystemTables(mdbDatabase *db)
   int ret;
   uint8 t, c;
   char id[16];
-  const char *tbl_ids[3] = { ".TABLES", ".COLUMNS", ".INDEXES" };
+  const char *tbl_ids[3] = { ".Tables", ".Columns", ".Indexes" };
   mdbTable *tbl_ptrs[3] = { db->tables, db->columns, db->indexes };
 
   for (t = 0; t < 3; t++)
