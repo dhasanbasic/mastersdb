@@ -325,7 +325,11 @@ public:
     if (result->columns.size() > 0)
     {
       res = result;
-      result = NULL;
+      result = new mdbQueryResult;
+      result->cp = 0;
+      result->record = NULL;
+      result->record_size = 0;
+      result->vals.push_back(0);
     }
     return res;
   }

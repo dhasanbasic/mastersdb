@@ -30,10 +30,25 @@ int main(int argc, char **argv)
 
   db = MdbDatabase::OpenDatabase("test.mrdb");
 
+  rs = db->ExecuteMQL("DESCRIBE Osobe;");
+  if (rs != NULL)
+  {
+    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
+    cout << endl;
+    do
+    {
+      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
+      cout << rs->GetIntValue(2) << "\t" << (uint32_t)rs->GetIntValue(3) << endl;
+    }
+    while (rs->ToNext());
+    delete rs;
+    cout << endl;
+  }
+
   rs = db->ExecuteMQL("SELECT * FROM Osobe;");
   if (rs != NULL)
   {
-    cout << "Retrieved " << rs->GetRecordCount() << " record!" << endl;
+    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
     cout << endl;
     do
     {
