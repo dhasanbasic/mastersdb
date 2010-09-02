@@ -496,7 +496,7 @@ void MastersDBVM::NextRecord()
   }
 
   ret = mdbBtreeTraverse(&tables[tp].traversal, tables[tp].record);
-  _push((ret != MDB_BTREE_NOTFOUND) ? MVI_SUCCESS : MVI_FAILURE);
+  _push((ret != MDB_BTREE_KEY_NOT_FOUND) ? MVI_SUCCESS : MVI_FAILURE);
 }
 
 /*

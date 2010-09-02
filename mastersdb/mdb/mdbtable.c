@@ -29,7 +29,7 @@
 
 #include "mdb.h"
 
-int mdbFreeTable(mdbTable *t)
+mdbError mdbFreeTable(mdbTable *t)
 {
   if (t->T != NULL)
   {
@@ -41,11 +41,11 @@ int mdbFreeTable(mdbTable *t)
   }
   cfree(t->columns);
   free(t);
-  return MDB_TABLE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
 /* creates the system tables and writes them to a file */
-int mdbCreateSystemTables(mdbDatabase *db)
+mdbError mdbCreateSystemTables(mdbDatabase *db)
 {
   static const char *tbl_names[3] = { ".Tables", ".Columns", ".Indexes" };
   static const uint32 tbl_columns[3] = {3L, 5L, 2L};
@@ -120,10 +120,10 @@ int mdbCreateSystemTables(mdbDatabase *db)
     }
   }
 
-  return MDB_TABLE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
-int mdbLoadSystemTables(mdbDatabase *db)
+mdbError mdbLoadSystemTables(mdbDatabase *db)
 {
   int ret;
   uint8 t, c;
@@ -152,11 +152,11 @@ int mdbLoadSystemTables(mdbDatabase *db)
 
   }
 
-  return MDB_TABLE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
 /* Creates a table and stores its B-tree and root node into the database */
-int mdbCreateTable(mdbTable *t)
+mdbError mdbCreateTable(mdbTable *t)
 {
   int ret;
   uint8 c;
@@ -205,10 +205,10 @@ int mdbCreateTable(mdbTable *t)
     ret = mdbBtreeInsert((char*)&(t->columns[c]), t->db->columns->T);
   }
 
-  return MDB_TABLE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
-int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
+mdbError mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
 {
   char key[64];
   int ret;
@@ -226,7 +226,7 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
   /* load the table meta data */
   ret = mdbBtreeSearch(name, (char*)&l_t->rec, db->tables->T);
 
-  if (ret == MDB_BTREE_SEARCH_FOUND)
+  if (ret == MDB_NO_ERROR)
   {
     /* load the table columns meta data */
     l_t->columns = (mdbColumnRecord*)calloc(l_t->rec.columns,
@@ -260,8 +260,8 @@ int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
   else
   {
     free(l_t);
-    return MDB_TABLE_NOTFOUND;
+    return MDB_TABLE_NOT_FOUND;
   }
 
-  return MDB_TABLE_SUCCESS;
+  return MDB_NO_ERROR;
 }

@@ -84,7 +84,7 @@ void mdbDeleteNode(mdbBtreeNode* node)
  *  NODE_SIZE = (2 * T) * (RECORD_SIZE + 4) - RECORD_SIZE + 4
  *
  */
-int mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
+mdbError mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
 {
   *node = (mdbBtreeNode*) malloc(sizeof(mdbBtreeNode));
 
@@ -100,7 +100,7 @@ int mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
   (*node)->T = tree;
   (*node)->position = 0L;
 
-  return MDB_BTREE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
 /* B-tree key comparison based on the data type of the key */
@@ -151,7 +151,7 @@ uint32 mdbBtreeOptimalOrder(uint32 record_size)
 /*
  * B-tree allocation and initialization
  */
-int mdbBtreeCreate(mdbBtree** tree,
+mdbError mdbBtreeCreate(mdbBtree** tree,
     uint32 order,
     const uint32 record_size,
     const uint32 key_position)
@@ -175,13 +175,16 @@ int mdbBtreeCreate(mdbBtree** tree,
 
   BT_CALC_NODESIZE(*tree);
 
-  return MDB_BTREE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
 /*
  * Recursive B-tree search (internal, not visible to the programmer)
  */
-int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
+mdbError mdbBtreeSearchRecursive(
+    const char* key,
+    char* record,
+    mdbBtreeNode* node)
 {
   mdbBtreeNode* next = NULL;
   int result = 0;
@@ -198,14 +201,14 @@ int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
     if (mdbBtreeCmp(key,BT_KEY(node,i),node->T) == 0)
     {
       memcpy(record, BT_RECORD(node,i), BT_RECSIZE(node));
-      return MDB_BTREE_SEARCH_FOUND;
+      return MDB_NO_ERROR;
     }
   }
 
   /* if node is a leaf, search for the key and return NULL if not found */
   if (BT_LEAF(node))
   {
-    result = MDB_BTREE_SEARCH_NOTFOUND;
+    result = MDB_BTREE_KEY_NOT_FOUND;
   }
   /* if node is an internal node, search for the key or recurse to subtree */
   else
@@ -222,7 +225,7 @@ int mdbBtreeSearchRecursive(const char* key, char* record, mdbBtreeNode* node)
 /*
  * B-tree search function
  */
-int mdbBtreeSearch(const char* key, char* record, mdbBtree* t)
+mdbError mdbBtreeSearch(const char* key, char* record, mdbBtree* t)
 {
   if (t->root != NULL)
   {
@@ -230,7 +233,7 @@ int mdbBtreeSearch(const char* key, char* record, mdbBtree* t)
   }
   else
   {
-    return MDB_BTREE_INSERT_NOROOT;
+    return MDB_BTREE_NO_ROOT;
   }
 }
 
@@ -281,7 +284,7 @@ void mdbBtreeSplitNode(mdbBtreeNode* left, mdbBtreeNode* parent,
 /*
  * Recursive B-tree insertion (internal, not visible to the programmer)
  */
-int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
+mdbError mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
 {
   mdbBtreeNode* next = NULL;
   uint32 i = 0;
@@ -298,7 +301,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
   {
     if (mdbBtreeCmp(record + BT_KEYPOS(node),BT_KEY(node,i),node->T) == 0)
     {
-      return MDB_BTREE_INSERT_COLLISION;
+      return MDB_BTREE_KEY_COLLISION;
     }
   }
 
@@ -313,7 +316,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
     memcpy(BT_RECORD(node, i), record, BT_RECSIZE(node));
     BT_COUNT(node) = BT_COUNT(node) + 1;
     node->position = node->T->WriteNode(node);
-    return MDB_BTREE_INSERT_SUCCESS;
+    return MDB_NO_ERROR;
   }
 
   /* if node is an internal node recurse to the subtree */
@@ -339,7 +342,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
       {
         free(next->data);
         free(next);
-        return MDB_BTREE_INSERT_COLLISION;
+        return MDB_BTREE_KEY_COLLISION;
       }
     }
 
@@ -353,7 +356,7 @@ int mdbBtreeInsertRecursive(const char* record, mdbBtreeNode* node)
 /*
  * B-tree insertion function
  */
-int mdbBtreeInsert(const char* record, mdbBtree* t)
+mdbError mdbBtreeInsert(const char* record, mdbBtree* t)
 {
   mdbBtreeNode* newRoot = NULL;
 
@@ -381,7 +384,7 @@ int mdbBtreeInsert(const char* record, mdbBtree* t)
   }
   else
   {
-    return MDB_BTREE_INSERT_NOROOT;
+    return MDB_BTREE_NO_ROOT;
   }
 }
 
@@ -437,7 +440,7 @@ void mdbBtreeMergeNodes(mdbBtreeNode* left, mdbBtreeNode* right,
 /*
  * Internal recursive B-tree deletion function
  */
-int mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
+mdbError mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
 {
   mdbBtreeNode* left = NULL;
   mdbBtreeNode* right = NULL;
@@ -522,14 +525,14 @@ int mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
       free(left);
       return result;
     }
-    return MDB_BTREE_DELETE_SUCCESS;
+    return MDB_NO_ERROR;
   }
   else
   {
     /* if current node is leaf, the record does not exist */
     if (BT_LEAF(node))
     {
-      return MDB_BTREE_DELETE_NOTFOUND;
+      return MDB_BTREE_KEY_NOT_FOUND;
     }
     /* otherwise, re-balance the tree if necessary and recurse to subtree */
     else
@@ -666,7 +669,7 @@ int mdbBtreeDeleteRecursive(const char* key, mdbBtreeNode* node)
 /*
  * B-tree deletion function
  */
-int mdbBtreeDelete(const char* key, mdbBtree* t)
+mdbError mdbBtreeDelete(const char* key, mdbBtree* t)
 {
   mdbBtreeNode *newRoot = NULL;
 
@@ -690,18 +693,18 @@ int mdbBtreeDelete(const char* key, mdbBtree* t)
       }
       else
       {
-        return MDB_BTREE_DELETE_EMPTYROOT;
+        return MDB_BTREE_ROOT_IS_EMPTY;
       }
     }
     return mdbBtreeDeleteRecursive(key, t->root);
   }
   else
   {
-    return MDB_BTREE_DELETE_NOROOT;
+    return MDB_BTREE_NO_ROOT;
   }
 }
 
-int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
+mdbError mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
 {
   mdbBtreeTraversal *tmp;
   mdbBtree *tree = (*t)->node->T;
@@ -730,7 +733,7 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
       if ((*t)->parent == NULL)
       {
         /* no more records */
-        return MDB_BTREE_NOTFOUND;
+        return MDB_BTREE_KEY_NOT_FOUND;
       }
       tmp = (*t)->parent;
       free((*t)->node->data);
@@ -753,5 +756,5 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
     }
   }
 
-  return MDB_BTREE_SUCCESS;
+  return MDB_NO_ERROR;
 }

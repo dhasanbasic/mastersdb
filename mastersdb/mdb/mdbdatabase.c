@@ -72,7 +72,7 @@ void mdbInitializeTypes(mdbDatabase *db)
     (CompareKeysPtr)&strncmp};
 }
 
-int mdbCreateDatabase(mdbDatabase **db, const char *filename)
+mdbError mdbCreateDatabase(mdbDatabase **db, const char *filename)
 {
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
   mdbInitializeTypes(l_db);
@@ -114,14 +114,14 @@ int mdbCreateDatabase(mdbDatabase **db, const char *filename)
   else
   {
     free(l_db);
-    return MDB_DATABASE_NOFILE;
+    return MDB_CANNOT_CREATE_FILE;
   }
 
   *db = l_db;
-  return MDB_DATABASE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
-int mdbOpenDatabase(mdbDatabase **db, const char *filename)
+mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
 {
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
   uint32 size_test = sizeof(mdbDatabaseMeta) + 3 * sizeof(mdbBtreeMeta);
@@ -142,7 +142,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     {
       fclose(l_db->file);
       free(l_db);
-      return MDB_DATABASE_INVALIDFILE;
+      return MDB_INVALID_FILE;
     }
 
     /* reads the header and checks the magic number and version */
@@ -153,7 +153,7 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
     {
       fclose(l_db->file);
       free(l_db);
-      return MDB_DATABASE_INVALIDFILE;
+      return MDB_INVALID_FILE;
     }
 
     /* allocates and loads the B-tree of each system table */
@@ -201,17 +201,17 @@ int mdbOpenDatabase(mdbDatabase **db, const char *filename)
   else
   {
     free(l_db);
-    return MDB_DATABASE_NOFILE;
+    return MDB_CANNOT_CREATE_FILE;
   }
 
   ret = mdbLoadSystemTables(l_db);
 
   *db = l_db;
-  return MDB_DATABASE_SUCCESS;
+  return MDB_NO_ERROR;
 }
 
 /* Loads an existing MastersDB database, including header check */
-int mdbCloseDatabase(mdbDatabase *db)
+mdbError mdbCloseDatabase(mdbDatabase *db)
 {
   /* saves the system table root nodes */
   fseek(db->file, 0L, SEEK_SET);
@@ -228,5 +228,5 @@ int mdbCloseDatabase(mdbDatabase *db)
   cfree(db->datatypes);
   free(db);
 
-  return MDB_DATABASE_SUCCESS;
+  return MDB_NO_ERROR;
 }

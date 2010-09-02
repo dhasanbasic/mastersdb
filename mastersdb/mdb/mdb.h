@@ -25,6 +25,8 @@
  *  Initial version of file.
  * 20.07.2010
  *  Renamed project to MastersDB. Server functionality will not be included.
+ * 02.09.2010
+ *  Moved all function return values and error codes to a new enumerator.
 */
 
 #ifndef MDB_H_INCLUDED
@@ -40,6 +42,19 @@
 
 /* MastersDB version signature (0.8) */
 #define MDB_VERSION       0x0008
+
+/* MastersDB error codes enumerator*/
+typedef enum
+{
+  MDB_NO_ERROR = 0,
+  MDB_BTREE_NO_ROOT,
+  MDB_BTREE_KEY_NOT_FOUND,
+  MDB_BTREE_KEY_COLLISION,
+  MDB_BTREE_ROOT_IS_EMPTY,
+  MDB_CANNOT_CREATE_FILE,
+  MDB_INVALID_FILE,
+  MDB_TABLE_NOT_FOUND
+}  mdbError;
 
 /* ********************************************************* *
  *    Common type definitions and data structures
@@ -77,45 +92,25 @@ typedef struct mdbIndexRecord mdbIndexRecord;
  *    B-tree related functions
  * ********************************************************* */
 /* B-tree allocation and initialization */
-int mdbBtreeCreate(mdbBtree** tree,
+mdbError mdbBtreeCreate(mdbBtree** tree,
     uint32 order,
     const uint32 record_size,
     const uint32 key_position);
 
 /* B-tree node allocation function */
-int mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
+mdbError mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
 
 /* B-tree search */
-int mdbBtreeSearch(const char* key, char* record, mdbBtree* t);
+mdbError mdbBtreeSearch(const char* key, char* record, mdbBtree* t);
 
 /* B-tree insertion */
-int mdbBtreeInsert(const char* record, mdbBtree* t);
+mdbError mdbBtreeInsert(const char* record, mdbBtree* t);
 
 /* B-tree deletion */
-int mdbBtreeDelete(const char* key, mdbBtree* t);
+mdbError mdbBtreeDelete(const char* key, mdbBtree* t);
 
 /* B-tree traversal */
-int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
-
-/* General return values */
-#define MDB_BTREE_SUCCESS          1  /* B-tree operation succeeded         */
-#define MDB_BTREE_NOROOT           0  /* B-tree contains no root pointer    */
-#define MDB_BTREE_NOTFOUND        -1  /* non-existing key                   */
-
-/* B-tree search function return values */
-#define MDB_BTREE_SEARCH_FOUND      MDB_BTREE_SUCCESS
-#define MDB_BTREE_SEARCH_NOTFOUND   MDB_BTREE_NOTFOUND
-
-/* B-tree insertion function return values */
-#define MDB_BTREE_INSERT_COLLISION  -2  /* tree already contains that key   */
-#define MDB_BTREE_INSERT_NOROOT     MDB_BTREE_NOROOT
-#define MDB_BTREE_INSERT_SUCCESS    MDB_BTREE_SUCCESS
-
-/* B-tree deletion function return values */
-#define MDB_BTREE_DELETE_NOTFOUND   MDB_BTREE_NOTFOUND
-#define MDB_BTREE_DELETE_NOROOT     MDB_BTREE_NOROOT
-#define MDB_BTREE_DELETE_SUCCESS    MDB_BTREE_SUCCESS
-#define MDB_BTREE_DELETE_EMPTYROOT  2  /* B-tree root node has no records   */
+mdbError mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
 
 /* ********************************************************* */
 /* ********************************************************* */
@@ -124,19 +119,13 @@ int mdbBtreeTraverse(mdbBtreeTraversal **t, char *record);
  *    Database related functions and defines
  * ********************************************************* */
 /* Creates an empty MastersDB database */
-int mdbCreateDatabase(mdbDatabase **db, const char *filename);
+mdbError mdbCreateDatabase(mdbDatabase **db, const char *filename);
 
 /* Loads an existing MastersDB database, including header check */
-int mdbOpenDatabase(mdbDatabase **db, const char *filename);
+mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename);
 
 /* Loads an existing MastersDB database, including header check */
-int mdbCloseDatabase(mdbDatabase *db);
-
-/* General return values */
-#define MDB_DATABASE_SUCCESS          1  /* Database creation succeeded      */
-#define MDB_DATABASE_NOFILE          -1  /* Database creation failure (I/O)  */
-#define MDB_DATABASE_INVALIDFILE     -2  /* Tried to open invalid file       */
-#define MDB_DATABASE_NO_SUCH_TABLE   -3  /* Tried to load non-existing table */
+mdbError mdbCloseDatabase(mdbDatabase *db);
 
 /* Data-type count */
 #define MDB_DATATYPE_COUNT  5
@@ -148,23 +137,19 @@ int mdbCloseDatabase(mdbDatabase *db);
  *    Table related functions
  * ********************************************************* */
 /* Loads the meta data, B-tree descriptor and root node of a table */
-int mdbFreeTable(mdbTable *t);
+mdbError mdbFreeTable(mdbTable *t);
 
 /* creates the system tables and writes them to a file */
-int mdbCreateSystemTables(mdbDatabase *db);
+mdbError mdbCreateSystemTables(mdbDatabase *db);
 
 /* Loads meta data, B-tree descriptor and root node of the system tables */
-int mdbLoadSystemTables(mdbDatabase *db);
+mdbError mdbLoadSystemTables(mdbDatabase *db);
 
 /* Creates a table and stores its B-tree and root node into the database */
-int mdbCreateTable(mdbTable *t);
+mdbError mdbCreateTable(mdbTable *t);
 
 /* Loads the meta data, B-tree descriptor and root node of a table */
-int mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name);
-
-/* General return values */
-#define MDB_TABLE_SUCCESS             1  /* Table creation succeeded  */
-#define MDB_TABLE_NOTFOUND           -1  /* Table does not exist      */
+mdbError mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name);
 
 /* ********************************************************* */
 /* ********************************************************* */
