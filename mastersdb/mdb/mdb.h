@@ -44,7 +44,7 @@
 #define MDB_VERSION       0x0008
 
 /* MastersDB error codes enumerator*/
-typedef enum
+typedef enum mdbError
 {
   MDB_NO_ERROR = 0,
   MDB_BTREE_NO_ROOT,
