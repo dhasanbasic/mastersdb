@@ -22,6 +22,8 @@
  * ----------------
  * 10.08.2010
  *  Initial version of file.
+ * 02.09.2010
+ *  Removed the mdbTable structure. It will be handled by the virtual machine.
  */
 
 #ifndef MDBTYPES_H_
@@ -31,14 +33,19 @@
 typedef int (*CompareKeysPtr)(const void* key1, const void* key2, uint32 size);
 
 /* B-tree node retrieval function */
-typedef mdbBtreeNode* (*BtreeLoadNodePtr)
-    (const uint32 position, mdbBtree* tree);
+typedef mdbBtreeNode* (*BtreeLoadNodePtr)(const uint32 position,mdbBtree* tree);
 
 /* B-tree node write-out function */
 typedef uint32 (*BtreeWriteNodePtr)(mdbBtreeNode* node);
 
 /* B-tree node deletion function */
 typedef void (*BtreeDeleteNodePtr)(mdbBtreeNode* node);
+
+/* MastersDB table column retrieval call-back function (mdbCreateTable)*/
+typedef mdbColumn* (*mdbColumnRetrievalPtr)(uint8 c, void* cls);
+
+/* MastersDB table column call-back function (mdbLoadTable)*/
+typedef void (*mdbColumnCallbackPtr)(mdbColumn* column, void* cls);
 
 /* B-tree node meta-data */
 struct mdbBtreeMeta
@@ -59,6 +66,7 @@ struct mdbBtree
   BtreeLoadNodePtr ReadNode;      /* node retrieval implementation         */
   BtreeWriteNodePtr WriteNode;    /* node write-out implementation         */
   BtreeDeleteNodePtr DeleteNode;  /* node deletion implementation          */
+  FILE *file;                     /* The file which containing the B-tree  */
 };
 
 /* B-tree node structure */
@@ -100,51 +108,43 @@ struct mdbDatabaseMeta
 struct mdbDatabase
 {
   mdbDatabaseMeta meta;
-  mdbTable *tables;
-  mdbTable *columns;
-  mdbTable *indexes;
+  mdbBtree *tables;
+  mdbBtree *columns;
+  mdbBtree *indexes;
   mdbDatatype *datatypes;
   FILE *file;
 };
 
 /* MastersDB data type */
 struct mdbDatatype {
-  char name[8];           /* upper-case name, including null char.          */
+  char name[10];          /* upper-case name (in MastersDB string format)   */
   byte header;            /* length of header information (0 if not used)   */
   byte size;              /* size of the value, 0 for varying-size types    */
   CompareKeysPtr compare; /* pointer to comparison function                 */
 };
 
 /* MastersDB table record */
-struct mdbTableRecord
+struct mdbTable
 {
   char name[59];                /* Table name                       */
   byte columns;                 /* Number of columns                */
   uint32 btree;                 /* Pointer to B-tree in the file    */
 };
 
-struct mdbTable
-{
-  mdbTableRecord rec;           /* the table record                 */
-  mdbColumnRecord *columns;     /* Field information                */
-  mdbBtree* T;                  /* Table's B-tree                   */
-  mdbDatabase *db;              /* Pointer to database              */
-};
-
 /* MastersDB field record */
-struct mdbColumnRecord
+struct mdbColumn
 {
-  char id[64];                  /* Field identifier (table_name + N)*/
-  char name[58];                /* Data type name                   */
+  char id[62];                  /* Field identifier (table_name + N)*/
+  char name[60];                /* Data type name                   */
   byte type;                    /* field name                       */
   byte indexed;                 /* >0 = The field is indexed        */
   uint32 length;                /* max. length of the field value   */
 };
 
 /* MastersDB index record */
-struct mdbIndexRecord
+struct mdbIndex
 {
-  char id[64];                  /* Index identifier (field id)      */
+  char id[60];                  /* Index identifier (field id)      */
   uint32 btree;                 /* Pointer to B+-tree in the file   */
 };
 

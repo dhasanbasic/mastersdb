@@ -20,9 +20,13 @@ int main(int argc, char **argv)
   }
 
   rs = db->ExecuteMQL("INSERT INTO Osobe ('Dinko','Hasanbašić');");
+  rs = db->ExecuteMQL("INSERT INTO Osobe ('Denis','Hasanbašić');");
+  rs = db->ExecuteMQL("INSERT INTO Osobe ('Amar','Trnka');");
+  rs = db->ExecuteMQL("INSERT INTO Osobe ('Dino','Merzić');");
+  rs = db->ExecuteMQL("INSERT INTO Osobe ('Daria','Roić');");
   if (rs == NULL)
   {
-    cout << "Record sucessfully inserted!" << endl;
+    cout << "Records sucessfully inserted!" << endl;
     cout << endl;
   }
 
@@ -58,6 +62,21 @@ int main(int argc, char **argv)
     delete rs;
     cout << endl;
   }
+
+  rs = db->ExecuteMQL("SELECT Prezime FROM Osobe;");
+  if (rs != NULL)
+  {
+    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
+    cout << endl;
+    do
+    {
+      cout << rs->GetStringValue(0) << endl;
+    }
+    while (rs->ToNext());
+    delete rs;
+    cout << endl;
+  }
+
 
   delete db;
 

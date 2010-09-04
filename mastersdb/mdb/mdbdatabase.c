@@ -59,21 +59,31 @@ void mdbInitializeTypes(mdbDatabase *db)
   /* initialize the data types array */
   db->datatypes = (mdbDatatype*)calloc(MDB_DATATYPE_COUNT, sizeof(mdbDatatype));
 
-  db->datatypes[0] = (mdbDatatype){ "INT-8",  0, sizeof(byte),   &memcmp};
+  db->datatypes[0] = (mdbDatatype) {
+    "\x005\0\0\0INT-8", 0, sizeof(byte), &memcmp
+  };
 
-  db->datatypes[1] = (mdbDatatype){ "INT-16", 0, sizeof(uint16), &memcmp};
+  db->datatypes[1] = (mdbDatatype) {
+    "\x006\0\0\0INT-16", 0, sizeof(uint16), &memcmp
+  };
 
-  db->datatypes[2] = (mdbDatatype){ "INT-32", 0, sizeof(uint32), &memcmp};
+  db->datatypes[2] = (mdbDatatype) {
+    "\x006\0\0\0INT-32", 0, sizeof(uint32), &memcmp
+  };
 
-  db->datatypes[3] = (mdbDatatype){ "FLOAT" , 0, sizeof(float),
-    &mdbCompareFloat};
+  db->datatypes[3] = (mdbDatatype) {
+    "\x005\0\0\0FLOAT" , 0, sizeof(float), &mdbCompareFloat
+  };
 
-  db->datatypes[4] = (mdbDatatype){ "STRING", 4, sizeof(byte),
-    (CompareKeysPtr)&strncmp};
+  db->datatypes[4] = (mdbDatatype) {
+    "\x006\0\0\0STRING", 4, sizeof(byte), (CompareKeysPtr)&strncmp
+  };
 }
 
 mdbError mdbCreateDatabase(mdbDatabase **db, const char *filename)
 {
+  static char placeholder[180];
+
   mdbDatabase *l_db = (mdbDatabase*)malloc(sizeof(mdbDatabase));
   mdbInitializeTypes(l_db);
 
@@ -85,31 +95,35 @@ mdbError mdbCreateDatabase(mdbDatabase **db, const char *filename)
   /* writes the MastersDB header and meta-data to a file */
   if ((l_db->file = fopen(filename, "w+b")) != NULL)
   {
+    fwrite(placeholder, 180, 1, l_db->file);
+
     mdbCreateSystemTables(l_db);
 
     /* positions of the database system tables (B-tree + root node) */
-    l_db->tables->T->meta.root_position =
-        l_db->indexes->rec.btree + sizeof(mdbBtreeMeta);
+    l_db->tables->meta.root_position =
+        sizeof(mdbDatabaseMeta) + 3 * sizeof(mdbBtreeMeta);
 
-    l_db->columns->T->meta.root_position =
-        l_db->tables->T->meta.root_position + l_db->tables->T->nodeSize;
+    l_db->columns->meta.root_position =
+        l_db->tables->meta.root_position + l_db->tables->nodeSize;
 
-    l_db->indexes->T->meta.root_position =
-        l_db->columns->T->meta.root_position + l_db->columns->T->nodeSize;
+    l_db->indexes->meta.root_position =
+        l_db->columns->meta.root_position + l_db->columns->nodeSize;
 
     /* writes all meta data to the empty database */
+    fseek(l_db->file, 0, SEEK_SET);
+
     fwrite(&(l_db->meta), sizeof(mdbDatabaseMeta), 1, l_db->file);
 
-    fwrite(&(l_db->tables->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
-    fwrite(&(l_db->columns->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
-    fwrite(&(l_db->indexes->T->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&(l_db->tables->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&(l_db->columns->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
+    fwrite(&(l_db->indexes->meta), sizeof(mdbBtreeMeta), 1, l_db->file);
 
-    fwrite(l_db->tables->T->root->data,
-        l_db->tables->T->nodeSize, 1, l_db->file);
-    fwrite(l_db->columns->T->root->data,
-        l_db->columns->T->nodeSize,1, l_db->file);
-    fwrite(l_db->indexes->T->root->data,
-        l_db->indexes->T->nodeSize,1, l_db->file);
+    fwrite(l_db->tables->root->data,
+        l_db->tables->nodeSize, 1, l_db->file);
+    fwrite(l_db->columns->root->data,
+        l_db->columns->nodeSize,1, l_db->file);
+    fwrite(l_db->indexes->root->data,
+        l_db->indexes->nodeSize,1, l_db->file);
   }
   else
   {
@@ -159,52 +173,44 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
     /* allocates and loads the B-tree of each system table */
 
     /* ------- .TABLES ------- */
-    l_db->tables = (mdbTable*)malloc(sizeof(mdbTable));
-    l_db->tables->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->file = l_db->file;
     T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
-    l_db->tables->T = T;
+    l_db->tables = T;
 
     /* ------ .COLUMNS ------- */
-    l_db->columns = (mdbTable*)malloc(sizeof(mdbTable));
-    l_db->columns->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->file = l_db->file;
     T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
-    l_db->columns->T = T;
+    l_db->columns = T;
 
     /* ------ .INDEXES ------- */
-    l_db->indexes = (mdbTable*)malloc(sizeof(mdbTable));
-    l_db->indexes->db = l_db;
     fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
+    T->file = l_db->file;
     T->meta.root_position = meta.root_position;
     T->key_type = &l_db->datatypes[4];
-    l_db->indexes->T = T;
+    l_db->indexes = T;
 
-    /* ------ Root nodes of the system table B-trees ------ */
-    T = l_db->tables->T;
-    mdbAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    /* loads the root nodes of each system table B-tree */
+    l_db->tables->root = l_db->tables->ReadNode(
+        l_db->tables->meta.root_position, l_db->tables);
 
-    T = l_db->columns->T;
-    mdbAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->columns->root = l_db->columns->ReadNode(
+        l_db->columns->meta.root_position, l_db->columns);
 
-    T = l_db->indexes->T;
-    mdbAllocateNode(&T->root,T);
-    fread(T->root->data, T->nodeSize, 1, l_db->file);
+    l_db->indexes->root = l_db->indexes->ReadNode(
+        l_db->indexes->meta.root_position, l_db->indexes);
   }
   else
   {
     free(l_db);
     return MDB_CANNOT_CREATE_FILE;
   }
-
-  ret = mdbLoadSystemTables(l_db);
 
   *db = l_db;
   return MDB_NO_ERROR;
@@ -213,14 +219,20 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
 /* Loads an existing MastersDB database, including header check */
 mdbError mdbCloseDatabase(mdbDatabase *db)
 {
+  mdbError ret;
+
   /* saves the system table root nodes */
   fseek(db->file, 0L, SEEK_SET);
   fwrite(&(db->meta), sizeof(mdbDatabaseMeta), 1, db->file);
 
   /* frees all dynamically allocated structures */
-  mdbFreeTable(db->tables);
-  mdbFreeTable(db->columns);
-  mdbFreeTable(db->indexes);
+  ret = mdbFreeNode(db->tables->root, 1);
+  ret = mdbFreeNode(db->columns->root, 1);
+  ret = mdbFreeNode(db->indexes->root, 1);
+
+  free (db->tables);
+  free (db->columns);
+  free (db->indexes);
 
   /* the file can now be closed */
   fclose(db->file);

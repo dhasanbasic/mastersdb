@@ -29,28 +29,13 @@
 
 #include "mdb.h"
 
-mdbError mdbFreeTable(mdbTable *t)
-{
-  if (t->T != NULL)
-  {
-    fseek(t->db->file, t->T->meta.root_position, SEEK_SET);
-    fwrite(t->T->root->data, t->T->nodeSize, 1, t->db->file);
-    free(t->T->root->data);
-    free(t->T->root);
-    free(t->T);
-  }
-  cfree(t->columns);
-  free(t);
-  return MDB_NO_ERROR;
-}
-
 /* creates the system tables and writes them to a file */
 mdbError mdbCreateSystemTables(mdbDatabase *db)
 {
   static const char *tbl_names[3] = { ".Tables", ".Columns", ".Indexes" };
   static const uint32 tbl_columns[3] = {3L, 5L, 2L};
   static const uint32 tbl_recordlens[3] = {
-      sizeof(mdbTableRecord), sizeof(mdbColumnRecord), sizeof(mdbIndexRecord)
+      sizeof(mdbTable), sizeof(mdbColumn), sizeof(mdbIndex)
   };
   static const char *col_names[3][5] = {
       { "Name", "Columns", "B-tree", "", "" },
@@ -58,52 +43,54 @@ mdbError mdbCreateSystemTables(mdbDatabase *db)
       { "Identifier", "B+tree", "", "", "" },
   };
   static const uint8 col_types[3][5] = {
-      { 4, 2, 2, 0, 0 },
+      { 4, 0, 2, 0, 0 },
       { 4, 0, 0, 4, 2 },
       { 4, 2, 0, 0, 0 },
   };
   static const uint32 col_lengths[3][5] = {
-      { 58L, 0, 0, 0, 0 },
-      { 61L, 0, 0, 58L, 0 },
-      { 62L, 0, 0, 0, 0 },
+      { 55L, 0, 0, 0, 0 },
+      { 58L, 0, 0, 56L, 0 },
+      { 56L, 0, 0, 0, 0 },
   };
 
-  mdbTable **tbl[3] = { &db->tables, &db->columns, &db->indexes};
-  int ret;
-  mdbColumnRecord *col;
+  mdbBtree **tbl[3] = { &db->tables, &db->columns, &db->indexes};
+  mdbTable tbl_rec[3];
+
+  mdbError ret;
+  mdbColumn *col;
   uint32 len;
   uint8 t; uint8 c;
+
+  /* reserve the file */
+
 
   /* create the system table meta-data */
   for (t = 0; t < 3; t++)
   {
     /* initialize the table structure */
-    (*tbl[t]) = (mdbTable*)malloc(sizeof(mdbTable));
-    memset((*tbl[t]), 0, sizeof(mdbTable));
-    (*tbl[t])->db = db;
-    ret = mdbBtreeCreate(&(*tbl[t])->T, 0L, tbl_recordlens[t], 0L);
-    ret = mdbAllocateNode(&((*tbl[t])->T->root), (*tbl[t])->T);
-    *((*tbl[t])->T->root->is_leaf) = 1L;
-    (*tbl[t])->T->key_type = &db->datatypes[4];
+    ret = mdbBtreeCreate(tbl[t], 0L, tbl_recordlens[t], 0L);
+    (*(tbl[t]))->file = db->file;
+    ret = mdbAllocateNode(&((*tbl[t])->root), (*tbl[t]));
+
+    *((*tbl[t])->root->is_leaf) = 1L;
+    (*tbl[t])->key_type = &db->datatypes[4];
 
     len = strlen(tbl_names[t]);
-    strcpy((*tbl[t])->rec.name + 4, tbl_names[t]);
-    *((uint32*)(*tbl[t])->rec.name) = len;
-    (*tbl[t])->rec.columns = tbl_columns[t];
-    (*tbl[t])->rec.btree = sizeof(mdbDatabaseMeta) + t*sizeof(mdbBtreeMeta);
-    ret = mdbBtreeInsert((char*)&(*tbl[t])->rec, db->tables->T);
+    strcpy(tbl_rec[t].name + 4, tbl_names[t]);
+    *((uint32*)tbl_rec[t].name) = len;
+    tbl_rec[t].columns = tbl_columns[t];
+    tbl_rec[t].btree = sizeof(mdbDatabaseMeta) + t * sizeof(mdbBtreeMeta);
+    ret = mdbBtreeInsert((char*)&tbl_rec[t], db->tables);
   }
 
   /* create the system table columns meta-data */
+  col = (mdbColumn*)malloc(sizeof(mdbColumn));
+  memset(col, 0, sizeof(mdbColumn));
+
   for (t = 0; t < 3; t++)
   {
-    (*tbl[t])->columns = (mdbColumnRecord*)calloc((*tbl[t])->rec.columns,
-        sizeof(mdbColumnRecord));
-
-    for (c = 0; c < (*tbl[t])->rec.columns; c++)
+    for (c = 0; c < tbl_rec[t].columns; c++)
     {
-      col = (*tbl[t])->columns + c;
-
       col->indexed = (c == 0) ? 1 : 0;
       col->type = col_types[t][c];
       col->length = col_lengths[t][c];
@@ -116,150 +103,124 @@ mdbError mdbCreateSystemTables(mdbDatabase *db)
       sprintf(col->id + 4, "%s%03u", tbl_names[t], c);
       *((uint32*)col->id) = len + 3;
 
-      ret = mdbBtreeInsert((char*)col, db->columns->T);
+      ret = mdbBtreeInsert((char*)col, db->columns);
     }
   }
+
+  free(col);
 
   return MDB_NO_ERROR;
 }
 
-mdbError mdbLoadSystemTables(mdbDatabase *db)
+/* Creates a table and stores its B-tree and root node in the database */
+mdbError mdbCreateTable(
+    mdbDatabase *db,
+    const char *name,
+    uint8 num_columns,
+    uint32 record_size,
+    mdbBtree** btree,
+    void *cls,
+    mdbColumnRetrievalPtr cb)
 {
-  int ret;
-  uint8 t, c;
-  char id[16];
-  const char *tbl_ids[3] = { ".Tables", ".Columns", ".Indexes" };
-  mdbTable *tbl_ptrs[3] = { db->tables, db->columns, db->indexes };
-
-  for (t = 0; t < 3; t++)
-  {
-    /* loads the table meta data */
-    strcpy(id + 4, tbl_ids[t]);
-    *((uint32*)id) = strlen(id + 4);
-    ret = mdbBtreeSearch(id, (char*)&tbl_ptrs[t]->rec, db->tables->T);
-
-    /* loads the columns meta data */
-    tbl_ptrs[t]->columns = (mdbColumnRecord*)calloc(tbl_ptrs[t]->rec.columns,
-        sizeof(mdbColumnRecord));
-
-    for (c=0; c < tbl_ptrs[t]->rec.columns; c++)
-    {
-      sprintf(id + 4, "%s%03u%c", tbl_ids[t], c, '\0');
-      *((uint32*)id) = strlen(id + 4);
-      ret = mdbBtreeSearch(id,
-          (char*)&(tbl_ptrs[t]->columns[c]), db->columns->T);
-    }
-
-  }
-
-  return MDB_NO_ERROR;
-}
-
-/* Creates a table and stores its B-tree and root node into the database */
-mdbError mdbCreateTable(mdbTable *t)
-{
-  int ret;
+  mdbError ret;
   uint8 c;
+  mdbColumn *col;
   uint32 len = 0;
+  mdbTable tbl;
+  mdbBtree *T;
 
   /* calculate the record size and optimal B-tree order for it */
-  for (c = 0; c < t->rec.columns; c++)
-  {
-    if (t->db->datatypes[t->columns[c].type].header > 0)
-    {
-      len += t->columns[c].length +
-          t->db->datatypes[t->columns[c].type].header;
-    }
-    else
-    {
-      len += t->db->datatypes[t->columns[c].type].size;
-    }
-  }
-
-  ret = mdbBtreeCreate(&(t->T), 0L, len, 0L);
-  ret = mdbAllocateNode(&(t->T->root), t->T);
-  *(t->T->root->is_leaf) = 1L;
+  ret = mdbBtreeCreate(&T, 0L, record_size, 0L);
+  ret = mdbAllocateNode(&(T->root), T);
+  *(T->root->is_leaf) = 1L;
 
   /* saves the B-tree descriptor and root node */
-  fseek(t->db->file, 0L, SEEK_END);
-  t->rec.btree = ftell(t->db->file);
-  t->T->meta.root_position = t->rec.btree + sizeof(mdbBtreeMeta);
+  fseek(db->file, 0L, SEEK_END);
+  tbl.btree = ftell(db->file);
+  T->meta.root_position = tbl.btree + sizeof(mdbBtreeMeta);
 
-  fwrite(&(t->T->meta), sizeof(mdbBtreeMeta), 1, t->db->file);
-  fwrite(t->T->root->data, t->T->nodeSize, 1, t->db->file);
+  fwrite(&(T->meta), sizeof(mdbBtreeMeta), 1, db->file);
+  fwrite(T->root->data, T->nodeSize, 1, db->file);
 
   /* saves the table and column meta data */
-  ret = mdbBtreeInsert((char*)&t->rec, t->db->tables->T);
+  tbl.columns = num_columns;
+  memcpy(tbl.name, name, *((uint32*)name) + 4);
+  ret = mdbBtreeInsert((char*)&tbl, db->tables);
 
-  len = *((uint32*)t->rec.name);
+  len = *((uint32*)name);
 
-  for (c = 0; c < t->rec.columns; c++)
+  for (c = 0; c < num_columns; c++)
   {
-    if (c == 0)
-    {
-      t->columns[c].indexed = 1;
-    }
-    strncpy(t->columns[c].id + 4, t->rec.name + 4, len);
-    sprintf(t->columns[c].id + 4 + len, "%03u", c);
-    *((uint32*)t->columns[c].id) = len + 3;
-    ret = mdbBtreeInsert((char*)&(t->columns[c]), t->db->columns->T);
+    col = cb(c, cls);
+    strncpy(col->id + 4, name + 4, len);
+    sprintf(col->id + 4 + len, "%03u", c);
+    *((uint32*)col->id) = len + 3;
+    ret = mdbBtreeInsert((char*)col, db->columns);
   }
+
+  T->file = db->file;
+  *btree = T;
 
   return MDB_NO_ERROR;
 }
 
-mdbError mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name)
+mdbError mdbLoadTable(
+    mdbDatabase *db,
+    const char *name,
+    mdbBtree **btree,
+    void *cls,
+    mdbColumnCallbackPtr cb)
 {
   char key[64];
-  int ret;
+  mdbError ret;
   uint32 len;
   uint8 c;
-  mdbTable *l_t;
+  uint8 key_type;
+  mdbTable tbl;
+  mdbColumn col;
   mdbBtree *T;
   mdbBtreeMeta meta;
 
-  *t = (mdbTable*)malloc(sizeof(mdbTable));
-  l_t = *t;
-
-  l_t->db = db;
-
   /* load the table meta data */
-  ret = mdbBtreeSearch(name, (char*)&l_t->rec, db->tables->T);
+  ret = mdbBtreeSearch(name, (char*)&tbl, db->tables);
 
   if (ret == MDB_NO_ERROR)
   {
-    /* load the table columns meta data */
-    l_t->columns = (mdbColumnRecord*)calloc(l_t->rec.columns,
-        sizeof(mdbColumnRecord));
-
-    len = *((uint32*)l_t->rec.name);
-    strncpy(key + 4, l_t->rec.name + 4, len);
+    len = *((uint32*)tbl.name);
+    strncpy(key + 4, tbl.name + 4, len);
     *((uint32*)key) = len + 3;
 
-    for (c=0; c < l_t->rec.columns; c++)
+    for (c = 0; c < tbl.columns; c++)
     {
       sprintf(key + 4 + len, "%03u%c", c, '\0');
-      ret = mdbBtreeSearch(key, (char*)(l_t->columns + c), db->columns->T);
+      ret = mdbBtreeSearch(key, (char*)&col, db->columns);
+
+      /* column call-back */
+      cb(&col, cls);
+
+      if (c == 0)
+      {
+        key_type = col.type;
+      }
     }
 
     /* load the table B-tree descriptor */
-    fseek(db->file, l_t->rec.btree, SEEK_SET);
+    fseek(db->file, tbl.btree, SEEK_SET);
     fread(&meta, sizeof(mdbBtreeMeta), 1, db->file);
     ret = mdbBtreeCreate(&T,meta.order,meta.record_size,meta.key_position);
 
-    /* set the appropriate key data type */
+    /* initialize the mdbBtree structure */
+    T->file = db->file;
     T->meta.root_position = meta.root_position;
-    T->key_type = &(db->datatypes[l_t->columns[0].type]);
+    T->key_type = &(db->datatypes[key_type]);
 
     /* load the table's B-tree root node */
-    mdbAllocateNode(&T->root,T);
-    fseek(db->file, T->meta.root_position, SEEK_SET);
-    fread(T->root->data, T->nodeSize, 1, db->file);
-    l_t->T = T;
+    T->root = T->ReadNode(meta.root_position, T);
+
+    *btree = T;
   }
   else
   {
-    free(l_t);
     return MDB_TABLE_NOT_FOUND;
   }
 

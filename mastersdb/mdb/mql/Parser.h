@@ -7,7 +7,7 @@ extern "C" {
   #include "../mdb.h"
 }
 
-#include "../mvm/MastersDBVM.h"
+#include "../mvm/mdbVirtualMachine.h"
 #include "MQLSelect.h"
 
 #include <string>
@@ -65,7 +65,7 @@ public:
 
 static const uint32 BUFFER_SIZE = 1024;
 char buf[BUFFER_SIZE];
-MastersDBVM *VM;
+mdbVirtualMachine *VM;
 MQLSelect *select;
 
 uint16 dp;
@@ -82,7 +82,7 @@ uint32 getOffset(const void* src, const void* dest)
   return (uint32)((char*)dest - (char*)src);
 }
 
-void setVM (MastersDBVM *vm)
+void setVM (mdbVirtualMachine *vm)
 {
   VM = vm;
 }
@@ -104,9 +104,9 @@ void setSelect (MQLSelect *select)
 	void MQLInsertStatement();
 	void MQLDescribeStatement();
 	void MQLSelectStatement();
-	void MQLAttributes(uint16 &n);
-	void MQLAttribute(mdbColumnRecord* &c);
-	void MQLDatatype(mdbColumnRecord *c);
+	void MQLAttributes();
+	void MQLAttribute(bool first);
+	void MQLDatatype(uint16* type_indexed, bool &has_length);
 	void MQLValues();
 	void MQLValue();
 	void MQLColumns();

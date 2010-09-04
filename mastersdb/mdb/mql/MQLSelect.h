@@ -31,7 +31,7 @@
 #ifndef MQLSELECT_H_
 #define MQLSELECT_H_
 
-#include "../mvm/MastersDBVM.h"
+#include "../mvm/mdbVirtualMachine.h"
 
 using namespace std;
 
@@ -53,7 +53,7 @@ private:
   string MDB_DEFAULT;
   vector<mdbDestinationColumn> destColumns;
   mdbTMap tables;
-  MastersDBVM *VM;
+  mdbVirtualMachine *VM;
   uint16 dptr;
 
   void GenSingleTableSelect();
@@ -70,7 +70,7 @@ public:
     this->dptr = dptr;
   }
 
-  void setVM(MastersDBVM *vm)
+  void setVM(mdbVirtualMachine *vm)
   {
     VM = vm;
   }

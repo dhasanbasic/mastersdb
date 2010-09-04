@@ -25,35 +25,18 @@
  */
 
 #include "MastersDB.h"
-#include "mdb/mvm/MastersDBVM.h"
+#include "mdb/mvm/mdbVirtualMachine.h"
 
 using namespace MDB;
-
-typedef MastersDBVM::mdbQueryResult mdbQueryResult;
 
 namespace MastersDB
 {
 
 void MdbResultSet::Close()
 {
-  uint32_t i;
-  mdbQueryResult *result;
   if (rs != NULL)
   {
-    result = (mdbQueryResult*)rs;
-    if (result->records.size() > 0)
-    {
-      for (i = 0; i < result->columns.size(); i++)
-      {
-        delete result->columns[i];
-      }
-      for (i = 0; i < result->records.size(); i++)
-      {
-        delete[] result->records[i];
-      }
-      delete[] result->record;
-    }
-    delete result;
+    delete (mdbQueryResults*)rs;
     rs = NULL;
   }
 }
@@ -62,7 +45,7 @@ uint32_t MdbResultSet::GetRecordCount()
 {
   if (rs != NULL)
   {
-    return ((mdbQueryResult*)rs)->records.size();
+    return ((mdbQueryResults*)rs)->GetRecordCount();
   }
   return 0;
 }
@@ -81,7 +64,7 @@ bool MdbResultSet::ToNext()
 {
   if (rs != NULL)
   {
-    if (r < (((mdbQueryResult*)rs)->records.size() - 1))
+    if (r < (((mdbQueryResults*)rs)->GetRecordCount() - 1))
     {
       r++;
       return true;
@@ -107,7 +90,7 @@ bool MdbResultSet::ToLast()
 {
   if (rs != NULL)
   {
-    r = ((mdbQueryResult*)rs)->records.size() - 1;
+    r = ((mdbQueryResults*)rs)->GetRecordCount() - 1;
     return true;
   }
   return false;
@@ -115,16 +98,22 @@ bool MdbResultSet::ToLast()
 
 int32_t MdbResultSet::GetIntValue(uint8_t column)
 {
-  mdbQueryResult *result;
+  mdbQueryResults *results;
+  mdbDatatype *type;
+  int32_t val = 0;
+
   if (rs != NULL)
   {
-    result = (mdbQueryResult*)rs;
-    if (column < result->columns.size())
+    results = (mdbQueryResults*)rs;
+    if (column < results->getColumnCount())
     {
-      return *((int32_t*)(result->records[r] + result->vals[column]));
+      type = ((mdbDatabase*)DB)->datatypes +
+          results->getColumn(column)->type;
+      memcpy(&val, results->GetRecord(r) +
+          results->getColumnOffset(column), type->size);
     }
   }
-  return 0;
+  return val;
 }
 
 int32_t MdbResultSet::GetIntValue(string column)
@@ -145,14 +134,14 @@ int32_t MdbResultSet::GetIntValue(string column)
 
 string MdbResultSet::GetStringValue(uint8_t column)
 {
-  mdbQueryResult *result;
+  mdbQueryResults *results;
   char *ret;
   if (rs != NULL)
   {
-    result = (mdbQueryResult*)rs;
-    if (column < result->columns.size())
+    results = (mdbQueryResults*)rs;
+    if (column < results->getColumnCount())
     {
-      ret = (result->records[r] + result->vals[column]);
+      ret = (results->GetRecord(r) + results->getColumnOffset(column));
       return string(ret + 4, *((uint32_t*)ret));
     }
   }

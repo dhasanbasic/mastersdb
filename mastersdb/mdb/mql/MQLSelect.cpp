@@ -162,7 +162,7 @@ void MQLSelect::GenSingleTableSelect()
   // ------------------------------------------------------------------
   iter = tables.begin();
   // SET TABLE
-  VM->AddInstruction(MastersDBVM::SETTBL, iter->second.first);
+  VM->AddInstruction(mdbVirtualMachine::SETTBL, iter->second.first);
   // store the table name
   len = iter->first.length();
   name = (char*) malloc(len + 4);
@@ -170,7 +170,7 @@ void MQLSelect::GenSingleTableSelect()
   *((uint32*)name) = len;
   VM->StoreData(name, dptr);
   // LOAD TABLE with name memory[DATA]
-  VM->AddInstruction(MastersDBVM::LDTBL, dptr++);
+  VM->AddInstruction(mdbVirtualMachine::LDTBL, dptr++);
   // ------------------------------------------------------------------
 
   // Phase 2 - Define the destination columns
@@ -183,9 +183,9 @@ void MQLSelect::GenSingleTableSelect()
     pTable = tables[destColumns[c].first].first;
     pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
     // SET TABLE
-    VM->AddInstruction(MastersDBVM::SETTBL, pTable);
+    VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
     // COPY COLUMN (to result columns)
-    VM->AddInstruction(MastersDBVM::CPYCOL, pColumn);
+    VM->AddInstruction(mdbVirtualMachine::CPYCOL, pColumn);
   }
   // ------------------------------------------------------------------
 
@@ -195,28 +195,28 @@ void MQLSelect::GenSingleTableSelect()
   jmp = VM->getCodePointer();
 
   // NEXT RECORD
-  VM->AddInstruction(MastersDBVM::NXTREC, iter->second.first);
+  VM->AddInstruction(mdbVirtualMachine::NXTREC, iter->second.first);
 
   // NO OPERATION (place-holder for JUMP ON FAILURE)
   fail = VM->getCodePointer();
-  VM->AddInstruction(MastersDBVM::NOP, MastersDBVM::MVI_NOP);
+  VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
 
   // if '*' as column name was specified
   if (asterisk)
   {
     // COPY RECORD of tables[DATA] to the result store
-    VM->AddInstruction(MastersDBVM::CPYREC, iter->second.first);
+    VM->AddInstruction(mdbVirtualMachine::CPYREC, iter->second.first);
     // JUMP to instruction
-    VM->AddInstruction(MastersDBVM::JMP, jmp);
+    VM->AddInstruction(mdbVirtualMachine::JMP, jmp);
     // rewrites the NOP operation from above to be a
     // jump to the current instruction
-    VM->RewriteInstruction(fail, MastersDBVM::JMPF, VM->getCodePointer());
+    VM->RewriteInstruction(fail, mdbVirtualMachine::JMPF, VM->getCodePointer());
   }
   // otherwise, the source data needs to by copied column by column
   else
   {
     // NEW RESULT RECORD
-    VM->AddInstruction(MastersDBVM::NEWREC, MastersDBVM::MVI_SUCCESS);
+    VM->AddInstruction(mdbVirtualMachine::NEWREC, mdbVirtualMachine::MVI_SUCCESS);
     // copies source data of current table, column by column
     for (c = 0; c < destColumns.size(); c++)
     {
@@ -224,21 +224,21 @@ void MQLSelect::GenSingleTableSelect()
       pTable = tables[destColumns[c].first].first;
       pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
       // COPY VALUE of column memory[DATA] (to current result columns)
-      VM->AddInstruction(MastersDBVM::CPYVAL, pColumn);
+      VM->AddInstruction(mdbVirtualMachine::CPYVAL, pColumn);
     }
     // JUMP to instruction
-    VM->AddInstruction(MastersDBVM::JMP, jmp);
+    VM->AddInstruction(mdbVirtualMachine::JMP, jmp);
     // rewrites the NOP operation from above to be a
     // jump to the current instruction
-    VM->RewriteInstruction(fail, MastersDBVM::JMPF, VM->getCodePointer());
+    VM->RewriteInstruction(fail, mdbVirtualMachine::JMPF, VM->getCodePointer());
     // NEW RESULT RECORD (this is needed to ensure that the last
     // result record is added to the result records store)
-    VM->AddInstruction(MastersDBVM::NEWREC, MastersDBVM::MVI_SUCCESS);
+    VM->AddInstruction(mdbVirtualMachine::NEWREC, mdbVirtualMachine::MVI_SUCCESS);
   }
   // ------------------------------------------------------------------
 
   // the last instruction will be HALT and is added by the parser
-  // VM->AddInstruction(MastersDBVM::HALT, MastersDBVM::MVI_SUCCESS);
+  // VM->AddInstruction(mdbVirtualMachine::HALT, mdbVirtualMachine::MVI_SUCCESS);
 }
 
 MQLSelect::~MQLSelect()

@@ -34,23 +34,24 @@ namespace MastersDB
 
 MdbDatabase* MdbDatabase::CreateDatabase(string filename)
 {
-  MastersDBVM *vm;
+  mdbVirtualMachine *vm;
   MdbDatabase *db;
   MQLSelect *s;
   Parser *p;
   int ret;
 
+  // create the database
+  db = new MdbDatabase();
+  ret = mdbCreateDatabase((mdbDatabase**)&db->DB, filename.c_str());
+
   // create a new Parser and MQLSelect AST
-  vm = new MastersDBVM();
+  vm = new mdbVirtualMachine((mdbDatabase*)db->DB);
   s = new MQLSelect();
   s->setVM(vm);
   p = new Parser();
   p->setVM(vm);
   p->setSelect(s);
 
-  // create the database
-  db = new MdbDatabase();
-  ret = mdbCreateDatabase((mdbDatabase**)&db->DB, filename.c_str());
   db->VM = vm;
   db->P = p;
   db->S = s;
@@ -60,23 +61,24 @@ MdbDatabase* MdbDatabase::CreateDatabase(string filename)
 
 MdbDatabase* MdbDatabase::OpenDatabase(string filename)
 {
-  MastersDBVM *vm;
+  mdbVirtualMachine *vm;
   MdbDatabase *db;
   MQLSelect *s;
   Parser *p;
   int ret;
 
+  // create the database
+  db = new MdbDatabase();
+  ret = mdbOpenDatabase((mdbDatabase**)&db->DB, filename.c_str());
+
   // create a new Parser and MQLSelect AST
-  vm = new MastersDBVM();
+  vm = new mdbVirtualMachine((mdbDatabase*)db->DB);
   s = new MQLSelect();
   s->setVM(vm);
   p = new Parser();
   p->setVM(vm);
   p->setSelect(s);
 
-  // create the database
-  db = new MdbDatabase();
-  ret = mdbOpenDatabase((mdbDatabase**)&db->DB, filename.c_str());
   db->VM = vm;
   db->P = p;
   db->S = s;
@@ -86,18 +88,18 @@ MdbDatabase* MdbDatabase::OpenDatabase(string filename)
 
 MdbResultSet* MdbDatabase::ExecuteMQL(string statement)
 {
-  MastersDBVM *vm = (MastersDBVM*)VM;
+  mdbVirtualMachine *vm = (mdbVirtualMachine*)VM;
   Parser *p = (Parser*)P;
-  MastersDBVM::mdbQueryResult *rs;
+  mdbQueryResults *rs;
   MdbResultSet *mrs;
   if (vm != NULL)
   {
-    vm->setDatabase((mdbDatabase*) DB);
     p->Parse((uint8_t*) statement.c_str(), statement.length());
     if ((rs = vm->Execute()) != NULL)
     {
       mrs = new MdbResultSet();
       mrs->rs = rs;
+      mrs->DB = DB;
       return mrs;
     }
   }
@@ -113,7 +115,7 @@ void MdbDatabase::Close()
     DB = NULL;
     delete (Parser*) P;
     delete (MQLSelect*) S;
-    delete (MastersDBVM*) VM;
+    delete (mdbVirtualMachine*) VM;
   }
 }
 

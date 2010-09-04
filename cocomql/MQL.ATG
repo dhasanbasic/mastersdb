@@ -33,14 +33,14 @@
  *  Added rules for DESC statement.
  * 16.08.2010
  *  Added rules for SELECT.
- *  Added support for multicolumn select.
+ *  Added support for multi-column select.
  */
 
 extern "C" {
   #include "../mdb.h"
 }
 
-#include "../mvm/MastersDBVM.h"
+#include "../mvm/mdbVirtualMachine.h"
 #include "MQLSelect.h"
 
 #include <string>
@@ -52,7 +52,7 @@ COMPILER MQL
 
 static const uint32 BUFFER_SIZE = 1024;
 char buf[BUFFER_SIZE];
-MastersDBVM *VM;
+mdbVirtualMachine *VM;
 MQLSelect *select;
 
 uint16 dp;
@@ -69,7 +69,7 @@ uint32 getOffset(const void* src, const void* dest)
   return (uint32)((char*)dest - (char*)src);
 }
 
-void setVM (MastersDBVM *vm)
+void setVM (mdbVirtualMachine *vm)
 {
   VM = vm;
 }
@@ -127,225 +127,316 @@ MQL =
   | MQLInsertStatement
   | MQLDescribeStatement
   | MQLSelectStatement )
-  ';'                      (. VM->AddInstruction(MastersDBVM::HALT,        .)
-                           (.   MastersDBVM::MVI_SUCCESS);                 .).
+  ';'
+
+(.
+  VM->AddInstruction(mdbVirtualMachine::HALT,
+     mdbVirtualMachine::MVI_SUCCESS);
+.) .
 
 /*
  * CREATE TABLE
  */
 
-MQLCreateStatement =       (. string *s;       .)
-                           (. char *name;      .)
-                           (. uint16* data;    .)
-                           (. uint16 num_cols; .)
-                           (. uint16 ncp;      .)
-                           (. dp = 0;          .)
-                           (. tp = 0;          .)
+MQLCreateStatement =
+
+(.
+  string *s;
+  char *name;
+  uint16 ncp;
+  dp = 0;
+  tp = 0;
+.)
+
   "CREATE" "TABLE"
   
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
-  						   (. s = TokenToString();                         .)
-                           (. name = (char*)malloc(s->length() + 4);       .)
-                           (. *((uint32*)name) = s->length();              .)
-                           (. strncpy(name + 4, s->c_str(), s->length());  .)
-                           (. delete s;                                    .)
-                           (. ncp = dp++;                                  .)
-                           (. VM->AddInstruction(MastersDBVM::PUSHM, ncp); .)
-                           (. VM->AddInstruction(MastersDBVM::NEWTBL, dp); .)
-                           (. VM->StoreData(name, dp++);                   .)
+  IDENTIFIER
+  
+(.
+  VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+  s = TokenToString();
+  name = (char*)malloc(s->length() + 4);
+  *((uint32*)name) = s->length();
+  strncpy(name + 4, s->c_str(), s->length());
+  delete s;
+  ncp = dp;
+  VM->StoreData(name, dp++);
+.)
                            
-  '('                      (. num_cols = 0;                                .)
-  MQLAttributes<num_cols>            
-                           (. data = (uint16*)malloc(sizeof(uint16));      .)
-                           (. *data = num_cols;                            .)
-                           (. VM->StoreData((char*)data, ncp);             .)
-  ')'
-                           (. VM->AddInstruction(MastersDBVM::CRTTBL, tp); .).
+  '(' MQLAttributes ')'
+
+(. VM->AddInstruction(mdbVirtualMachine::CRTTBL, ncp); .) .
 
 /*
  * MQL attributes
  */
 
-MQLAttributes<uint16 &n> = (. mdbColumnRecord *c;                          .)
-                           (. n = 0;                                       .)
-                           
-  MQLAttribute<c>          (. VM->AddInstruction(MastersDBVM::NEWCOL, dp); .)
-                           (. VM->StoreData((char*)c, dp++);               .)
-                           (. n++;                                         .)
-                           
-  {                        (. VM->AddInstruction(MastersDBVM::NEWCOL, dp); .)
-  ',' MQLAttribute<c>         
-                           (. VM->StoreData((char*)c, dp++);               .)
-                           (. n++;                                         .)
-  }.
+MQLAttributes = MQLAttribute<true> {',' MQLAttribute<false> }.
 
 /*
  * MQL attribute
  */
 
-MQLAttribute<mdbColumnRecord* &c> =  (. string *s;                         .)
+MQLAttribute<bool first> =
 
-                           (. c = (mdbColumnRecord*)                       .)
-                           (.        malloc(sizeof(mdbColumnRecord));      .)
-                           (. memset(c, 0, sizeof(mdbColumnRecord));       .) 
+(.
+  string *s;
+  char *name;
+  uint16* type_indexed;
+  uint32* length = NULL;
+  bool has_length;
+.) 
 
-  IDENTIFIER               (. s = TokenToString();                         .)
-                           (. *((uint32*)c->name) = s->length();           .)
-                           (. strncpy(c->name+4, s->c_str(), s->length()); .)
-                           (. delete s;                                    .)
-                           
-  MQLDatatype<c>           (. c->length = 0;                               .)
+  IDENTIFIER
+
+(.
+  s = TokenToString();
+  name = (char*)malloc(s->length() + 4);
+  *((uint32*)name) = s->length();
+  strncpy(name+4, s->c_str(), s->length());
+  delete s;
   
+  type_indexed = (uint16*)malloc(sizeof(uint16));
+  *type_indexed = (first) ? 0xFF01 : 0xFF00;
+.)
+                           
+  MQLDatatype<type_indexed, has_length>
+
+(. if (has_length) length = (uint32*)malloc(sizeof(uint32)); .)
+  
+  { '(' NUMBER
+
+(.
+  s = TokenToString();
+  *length = atoi(s->c_str());
+  delete s;
+.)
+
+  ')' }
+
+(.
+  if (has_length)
   {
-  '('
-      NUMBER               (. s = TokenToString();                         .)
-                           (. c->length = atoi(s->c_str());                .)
-                           (. delete s;                                    .)
-  ')'
-  }.
+      // stores the column length and pushes its address
+      VM->AddInstruction(mdbVirtualMachine::PUSH, dp);
+      VM->StoreData((char*)length, dp++);
+  }
+  // stores the column type information and pushes its address
+  VM->AddInstruction(mdbVirtualMachine::PUSH, dp);
+  VM->StoreData((char*)type_indexed, dp++);
+  // stores the column name
+  VM->StoreData(name, dp);
+  // now the column can be created
+  VM->AddInstruction(mdbVirtualMachine::NEWCOL, dp++);
+.) .
 
 /*
  * MQL data type
  */
 
-MQLDatatype<mdbColumnRecord *c> =
+MQLDatatype<uint16* type_indexed, bool &has_length> =
 
-    "INT-8"      (. c->type = 0; .)
-  | "INT-16"     (. c->type = 1; .)
-  | "INT-32"     (. c->type = 2; .)
-  | "FLOAT"      (. c->type = 3; .)
-  | "STRING"     (. c->type = 4; .).
+    "INT-8"      (. (*type_indexed) &= 0x0001; has_length = false; .)
+  | "INT-16"     (. (*type_indexed) &= 0x0101; has_length = false; .)
+  | "INT-32"     (. (*type_indexed) &= 0x0201; has_length = false; .)
+  | "FLOAT"      (. (*type_indexed) &= 0x0301; has_length = false; .)
+  | "STRING"     (. (*type_indexed) &= 0x0401; has_length = true; .) .
 
 /*
  * INSERT INTO
  */
 
-MQLInsertStatement =       (. string *s;       .)
-                           (. char *name;      .)
-                           (. dp = 0;          .)
-                           (. tp = 0;          .)
-  "INSERT" "INTO"
+MQLInsertStatement =
 
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
-  						   (. s = TokenToString();                         .)
-                           (. name = (char*)malloc(s->length() + 4);       .)
-                           (. *((uint32*)name) = s->length();              .)
-                           (. strncpy(name + 4, s->c_str(), s->length());  .)
-                           (. delete s;                                    .)
-                           (. VM->AddInstruction(MastersDBVM::LDTBL, dp);  .)
-                           (. VM->StoreData(name, dp++);                   .)
-  "VALUES"
-  '(' MQLValues ')'
-                           (. VM->AddInstruction(MastersDBVM::INSREC, tp); .).
+(.
+  string *s;
+  char *name;
+  dp = 0;
+  tp = 0;
+.)
+
+  "INSERT" "INTO" IDENTIFIER
+
+(.
+  VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+  s = TokenToString();
+  name = (char*)malloc(s->length() + 4);
+  *((uint32*)name) = s->length();
+  strncpy(name + 4, s->c_str(), s->length());
+  delete s;
+  VM->AddInstruction(mdbVirtualMachine::LDTBL, dp);
+  VM->StoreData(name, dp++);
+.)
+
+  "VALUES" '(' MQLValues ')'
+
+(. VM->AddInstruction(mdbVirtualMachine::INSREC, tp); .) .
 
 /*
  * MQLValues
  */
 
-MQLValues = MQLValue { ',' MQLValue }.
+MQLValues = MQLValue { ',' MQLValue } .
 
 /*
  * MQLValue
  */
-MQLValue =                 (. string *s;                                   .)
-                           (. char *data;                                  .)
-  (
-    NUMBER                 (. s = TokenToString();                         .)
-                           (. data = (char*)malloc(sizeof(uint32));        .)
-                           (. *data = atoi(s->c_str());                    .)
-  |
-    STRING                 (. s = TokenToString();                         .)
-                           (. data = (char*)malloc(s->length() + 4);       .)
-                           (. *((uint32*)data) = s->length() - 2;          .)
-                           (. strncpy(data+4,s->c_str()+1,s->length()-2);  .)
+MQLValue =
+
+(.
+  string *s;
+  char *data;
+.)
+
+  ( NUMBER
+
+(.
+  s = TokenToString();
+  data = (char*)malloc(sizeof(uint32));
+  *data = atoi(s->c_str());
+.)
+
+  | STRING
+
+(.
+  s = TokenToString();
+  data = (char*)malloc(s->length() + 4);
+  *((uint32*)data) = s->length() - 2;
+  strncpy(data + 4, s->c_str() + 1, s->length() - 2);
+.)
+
   )
-                           (. VM->AddInstruction(MastersDBVM::INSVAL, dp); .)
-                           (. VM->StoreData(data, dp++);                   .)
-                           (. delete s;                                    .).
+
+(.
+  VM->AddInstruction(mdbVirtualMachine::INSVAL, dp);
+  VM->StoreData(data, dp++);
+  delete s; 
+.) .
 
 /*
  * DESC
  */
 
-MQLDescribeStatement =     (. string *s;       .)
-                           (. char *name;      .)
-                           (. dp = 0;          .)
-                           (. tp = 0;          .)
-  ("DESC" | "DESCRIBE")
+MQLDescribeStatement =
 
-  IDENTIFIER               (. VM->AddInstruction(MastersDBVM::SETTBL, tp); .)
-  						   (. s = TokenToString();                         .)
-                           (. name = (char*)malloc(s->length() + 4);       .)
-                           (. *((uint32*)name) = s->length();              .)
-                           (. strncpy(name + 4, s->c_str(), s->length());  .)
-                           (. delete s;                                    .)
-                           (. VM->AddInstruction(MastersDBVM::LDTBL, dp);  .)
-                           (. VM->StoreData(name, dp++);                   .)
-                           (. VM->AddInstruction(MastersDBVM::DSCTBL, tp); .).
+(.
+  string *s;
+  char *name;
+  dp = 0;
+  tp = 0;
+.)
+
+  ("DESC" | "DESCRIBE") IDENTIFIER
+
+(.
+  VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+  s = TokenToString();
+  name = (char*)malloc(s->length() + 4);
+  *((uint32*)name) = s->length();
+  strncpy(name + 4, s->c_str(), s->length());
+  delete s;
+  VM->AddInstruction(mdbVirtualMachine::LDTBL, dp);
+  VM->StoreData(name, dp++);
+  VM->AddInstruction(mdbVirtualMachine::DSCTBL, tp);
+.) .
 
 /*
  * SELECT
  */
 
-MQLSelectStatement =       (. dp = 0;          .)
-                           (. tp = 0;          .)
-                           (. select->Reset(); .)
+MQLSelectStatement =
+
+(.
+  dp = 0;
+  tp = 0;
+  select->Reset();
+.)
 
   "SELECT" MQLColumns "FROM" MQLTables
-                           (. select->setDataPointer(dp);                  .)
-                           (. select->GenerateBytecode();                  .).
+
+(.
+  select->setDataPointer(dp);
+  select->GenerateBytecode();
+.) .
 
 /*
  * MQLColumns
  */
-MQLColumns =               (. string *table = NULL;                        .)
-                           (. string *column = NULL; .)
+MQLColumns =
+
+(.
+  string *table = NULL;
+  string *column = NULL;
+.)
                            
-  '*'                      (. column = new string("*");                    .)
-                           (. if (select->MapColumn(column, table, dp))    .)
-                           (. {                                            .)
-                           (.   dp++;                                      .)
-                           (. };                                           .)
-                           (. delete column;                               .)
-  |
-  MQLColumn {',' MQLColumn}.
+  '*'
+(.
+  column = new string("*");
+  if (select->MapColumn(column, table, dp))
+  {
+     dp++;
+  };
+  delete column;
+.)
+
+  | MQLColumn {',' MQLColumn} .
 
 /*
  * MQLColumn
  */
-MQLColumn =                (. string *table = NULL;  .)
-                           (. string *column = NULL; .)
-                           (. string *tmp = NULL;    .)
-                           (. uint32 dot;            .)
+MQLColumn =
 
-  ( COLUMN                 (. tmp = TokenToString();                       .)
-                           (. dot = tmp->find('.');                        .)
-                           (. table = new string(tmp->c_str(),dot);        .)
-                           (. column = new string(tmp->c_str()+dot+1);     .)
-  |  
-    IDENTIFIER             (. column = TokenToString();                    .)
+(.
+  string *table = NULL;
+  string *column = NULL;
+  string *tmp = NULL;
+  uint32 dot;
+.)
+
+  ( COLUMN
+
+(.
+  tmp = TokenToString();
+  dot = tmp->find('.');
+  table = new string(tmp->c_str(),dot);
+  column = new string(tmp->c_str() + dot + 1);
+.)
+
+  |  IDENTIFIER
+  
+(. column = TokenToString(); .)
+
   )
-                           (. if (select->MapColumn(column, table, dp))    .)
-                           (. {                                            .)
-                           (.   dp++;                                      .)
-                           (. };                                           .)
-                           (. delete table;                                .)
-                           (. delete column;                               .)
-                           (. delete tmp;                                  .).
+
+(.
+  if (select->MapColumn(column, table, dp))
+  {
+     dp++;
+  };
+  delete table;
+  delete column;
+  delete tmp;
+.) .
 
 /*
  * MQLTables
  */
-MQLTables = MQLTable {',' MQLTable}.
+MQLTables = MQLTable {',' MQLTable} .
 
 /*
  * MQLTable
  */
-MQLTable =                 (. string *table = NULL; .)
+MQLTable =
 
-  IDENTIFIER               (. table = TokenToString();                     .)
-                           (. select->MapTable(table, tp);                 .)
-                           (. tp++;                                        .)
-                           (. delete table;                                .).
+(. string *table = NULL; .)
 
-END MQL.
+  IDENTIFIER
+
+(.
+  table = TokenToString();
+  select->MapTable(table, tp);
+  tp++;
+  delete table;
+.) .
+
+END MQL .

@@ -72,152 +72,167 @@ void Parser::MQL() {
 			MQLSelectStatement();
 		} else SynErr(26);
 		Expect(6);
-		VM->AddInstruction(MastersDBVM::HALT,        
-		MastersDBVM::MVI_SUCCESS);                 
+		VM->AddInstruction(mdbVirtualMachine::HALT,
+		  mdbVirtualMachine::MVI_SUCCESS);
+		
 }
 
 void Parser::MQLCreateStatement() {
-		string *s;       
-		char *name;      
-		uint16* data;    
-		uint16 num_cols; 
-		uint16 ncp;      
-		dp = 0;          
-		tp = 0;          
+		string *s;
+		char *name;
+		uint16 ncp;
+		dp = 0;
+		tp = 0;
+		
 		Expect(7);
 		Expect(8);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
-		s = TokenToString();                         
-		name = (char*)malloc(s->length() + 4);       
-		*((uint32*)name) = s->length();              
-		strncpy(name + 4, s->c_str(), s->length());  
-		delete s;                                    
-		ncp = dp++;                                  
-		VM->AddInstruction(MastersDBVM::PUSHM, ncp); 
-		VM->AddInstruction(MastersDBVM::NEWTBL, dp); 
-		VM->StoreData(name, dp++);                   
+		VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+		s = TokenToString();
+		name = (char*)malloc(s->length() + 4);
+		*((uint32*)name) = s->length();
+		strncpy(name + 4, s->c_str(), s->length());
+		delete s;
+		ncp = dp;
+		VM->StoreData(name, dp++);
+		
 		Expect(9);
-		num_cols = 0;                                
-		MQLAttributes(num_cols);
-		data = (uint16*)malloc(sizeof(uint16));      
-		*data = num_cols;                            
-		VM->StoreData((char*)data, ncp);             
+		MQLAttributes();
 		Expect(10);
-		VM->AddInstruction(MastersDBVM::CRTTBL, tp); 
+		VM->AddInstruction(mdbVirtualMachine::CRTTBL, ncp); 
 }
 
 void Parser::MQLInsertStatement() {
-		string *s;       
-		char *name;      
-		dp = 0;          
-		tp = 0;          
+		string *s;
+		char *name;
+		dp = 0;
+		tp = 0;
+		
 		Expect(17);
 		Expect(18);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
-		s = TokenToString();                         
-		name = (char*)malloc(s->length() + 4);       
-		*((uint32*)name) = s->length();              
-		strncpy(name + 4, s->c_str(), s->length());  
-		delete s;                                    
-		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
-		VM->StoreData(name, dp++);                   
+		VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+		s = TokenToString();
+		name = (char*)malloc(s->length() + 4);
+		*((uint32*)name) = s->length();
+		strncpy(name + 4, s->c_str(), s->length());
+		delete s;
+		VM->AddInstruction(mdbVirtualMachine::LDTBL, dp);
+		VM->StoreData(name, dp++);
+		
 		Expect(19);
 		Expect(9);
 		MQLValues();
 		Expect(10);
-		VM->AddInstruction(MastersDBVM::INSREC, tp); 
+		VM->AddInstruction(mdbVirtualMachine::INSREC, tp); 
 }
 
 void Parser::MQLDescribeStatement() {
-		string *s;       
-		char *name;      
-		dp = 0;          
-		tp = 0;          
+		string *s;
+		char *name;
+		dp = 0;
+		tp = 0;
+		
 		if (la->kind == 20) {
 			Get();
 		} else if (la->kind == 21) {
 			Get();
 		} else SynErr(27);
 		Expect(2);
-		VM->AddInstruction(MastersDBVM::SETTBL, tp); 
-		s = TokenToString();                         
-		name = (char*)malloc(s->length() + 4);       
-		*((uint32*)name) = s->length();              
-		strncpy(name + 4, s->c_str(), s->length());  
-		delete s;                                    
-		VM->AddInstruction(MastersDBVM::LDTBL, dp);  
-		VM->StoreData(name, dp++);                   
-		VM->AddInstruction(MastersDBVM::DSCTBL, tp); 
+		VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
+		s = TokenToString();
+		name = (char*)malloc(s->length() + 4);
+		*((uint32*)name) = s->length();
+		strncpy(name + 4, s->c_str(), s->length());
+		delete s;
+		VM->AddInstruction(mdbVirtualMachine::LDTBL, dp);
+		VM->StoreData(name, dp++);
+		VM->AddInstruction(mdbVirtualMachine::DSCTBL, tp);
+		
 }
 
 void Parser::MQLSelectStatement() {
-		dp = 0;          
-		tp = 0;          
-		select->Reset(); 
+		dp = 0;
+		tp = 0;
+		select->Reset();
+		
 		Expect(22);
 		MQLColumns();
 		Expect(23);
 		MQLTables();
-		select->setDataPointer(dp);                  
-		select->GenerateBytecode();                  
+		select->setDataPointer(dp);
+		select->GenerateBytecode();
+		
 }
 
-void Parser::MQLAttributes(uint16 &n) {
-		mdbColumnRecord *c;                          
-		n = 0;                                       
-		MQLAttribute(c);
-		VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
-		VM->StoreData((char*)c, dp++);               
-		n++;                                         
+void Parser::MQLAttributes() {
+		MQLAttribute(true);
 		while (la->kind == 11) {
-			VM->AddInstruction(MastersDBVM::NEWCOL, dp); 
 			Get();
-			MQLAttribute(c);
-			VM->StoreData((char*)c, dp++);               
-			n++;                                         
+			MQLAttribute(false);
 		}
 }
 
-void Parser::MQLAttribute(mdbColumnRecord* &c) {
-		string *s;                         
-		c = (mdbColumnRecord*)                       
-		malloc(sizeof(mdbColumnRecord));      
-		memset(c, 0, sizeof(mdbColumnRecord));       
+void Parser::MQLAttribute(bool first) {
+		string *s;
+		char *name;
+		uint16* type_indexed;
+		uint32* length = NULL;
+		bool has_length;
+		
 		Expect(2);
-		s = TokenToString();                         
-		*((uint32*)c->name) = s->length();           
-		strncpy(c->name+4, s->c_str(), s->length()); 
-		delete s;                                    
-		MQLDatatype(c);
-		c->length = 0;                               
+		s = TokenToString();
+		name = (char*)malloc(s->length() + 4);
+		*((uint32*)name) = s->length();
+		strncpy(name+4, s->c_str(), s->length());
+		delete s;
+		
+		type_indexed = (uint16*)malloc(sizeof(uint16));
+		*type_indexed = (first) ? 0xFF01 : 0xFF00;
+		
+		MQLDatatype(type_indexed, has_length);
+		if (has_length) length = (uint32*)malloc(sizeof(uint32)); 
 		while (la->kind == 9) {
 			Get();
 			Expect(1);
-			s = TokenToString();                         
-			c->length = atoi(s->c_str());                
-			delete s;                                    
+			s = TokenToString();
+			*length = atoi(s->c_str());
+			delete s;
+			
 			Expect(10);
 		}
+		if (has_length)
+		{
+		    // stores the column length and pushes its address
+		    VM->AddInstruction(mdbVirtualMachine::PUSH, dp);
+		    VM->StoreData((char*)length, dp++);
+		}
+		// stores the column type information and pushes its address
+		VM->AddInstruction(mdbVirtualMachine::PUSH, dp);
+		VM->StoreData((char*)type_indexed, dp++);
+		// stores the column name
+		VM->StoreData(name, dp);
+		// now the column can be created
+		VM->AddInstruction(mdbVirtualMachine::NEWCOL, dp++);
+		
 }
 
-void Parser::MQLDatatype(mdbColumnRecord *c) {
+void Parser::MQLDatatype(uint16* type_indexed, bool &has_length) {
 		if (la->kind == 12) {
 			Get();
-			c->type = 0; 
+			(*type_indexed) &= 0x0001; has_length = false; 
 		} else if (la->kind == 13) {
 			Get();
-			c->type = 1; 
+			(*type_indexed) &= 0x0101; has_length = false; 
 		} else if (la->kind == 14) {
 			Get();
-			c->type = 2; 
+			(*type_indexed) &= 0x0201; has_length = false; 
 		} else if (la->kind == 15) {
 			Get();
-			c->type = 3; 
+			(*type_indexed) &= 0x0301; has_length = false; 
 		} else if (la->kind == 16) {
 			Get();
-			c->type = 4; 
+			(*type_indexed) &= 0x0401; has_length = true; 
 		} else SynErr(28);
 }
 
@@ -230,36 +245,42 @@ void Parser::MQLValues() {
 }
 
 void Parser::MQLValue() {
-		string *s;                                   
-		char *data;                                  
+		string *s;
+		char *data;
+		
 		if (la->kind == 1) {
 			Get();
-			s = TokenToString();                         
-			data = (char*)malloc(sizeof(uint32));        
-			*data = atoi(s->c_str());                    
+			s = TokenToString();
+			data = (char*)malloc(sizeof(uint32));
+			*data = atoi(s->c_str());
+			
 		} else if (la->kind == 4) {
 			Get();
-			s = TokenToString();                         
-			data = (char*)malloc(s->length() + 4);       
-			*((uint32*)data) = s->length() - 2;          
-			strncpy(data+4,s->c_str()+1,s->length()-2);  
+			s = TokenToString();
+			data = (char*)malloc(s->length() + 4);
+			*((uint32*)data) = s->length() - 2;
+			strncpy(data + 4, s->c_str() + 1, s->length() - 2);
+			
 		} else SynErr(29);
-		VM->AddInstruction(MastersDBVM::INSVAL, dp); 
-		VM->StoreData(data, dp++);                   
-		delete s;                                    
+		VM->AddInstruction(mdbVirtualMachine::INSVAL, dp);
+		VM->StoreData(data, dp++);
+		delete s; 
+		
 }
 
 void Parser::MQLColumns() {
 		if (la->kind == 24) {
-			string *table = NULL;                        
-			string *column = NULL; 
+			string *table = NULL;
+			string *column = NULL;
+			
 			Get();
-			column = new string("*");                    
-			if (select->MapColumn(column, table, dp))    
-			{                                            
-			dp++;                                      
-			};                                           
-			delete column;                               
+			column = new string("*");
+			if (select->MapColumn(column, table, dp))
+			{
+			   dp++;
+			};
+			delete column;
+			
 		} else if (la->kind == 2 || la->kind == 3) {
 			MQLColumn();
 			while (la->kind == 11) {
@@ -278,36 +299,40 @@ void Parser::MQLTables() {
 }
 
 void Parser::MQLColumn() {
-		string *table = NULL;  
-		string *column = NULL; 
-		string *tmp = NULL;    
-		uint32 dot;            
+		string *table = NULL;
+		string *column = NULL;
+		string *tmp = NULL;
+		uint32 dot;
+		
 		if (la->kind == 3) {
 			Get();
-			tmp = TokenToString();                       
-			dot = tmp->find('.');                        
-			table = new string(tmp->c_str(),dot);        
-			column = new string(tmp->c_str()+dot+1);     
+			tmp = TokenToString();
+			dot = tmp->find('.');
+			table = new string(tmp->c_str(),dot);
+			column = new string(tmp->c_str() + dot + 1);
+			
 		} else if (la->kind == 2) {
 			Get();
-			column = TokenToString();                    
+			column = TokenToString(); 
 		} else SynErr(31);
-		if (select->MapColumn(column, table, dp))    
-		{                                            
-		dp++;                                      
-		};                                           
-		delete table;                                
-		delete column;                               
-		delete tmp;                                  
+		if (select->MapColumn(column, table, dp))
+		{
+		   dp++;
+		};
+		delete table;
+		delete column;
+		delete tmp;
+		
 }
 
 void Parser::MQLTable() {
 		string *table = NULL; 
 		Expect(2);
-		table = TokenToString();                     
-		select->MapTable(table, tp);                 
-		tp++;                                        
-		delete table;                                
+		table = TokenToString();
+		select->MapTable(table, tp);
+		tp++;
+		delete table;
+		
 }
 
 

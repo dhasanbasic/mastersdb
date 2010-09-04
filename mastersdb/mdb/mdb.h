@@ -27,6 +27,7 @@
  *  Renamed project to MastersDB. Server functionality will not be included.
  * 02.09.2010
  *  Moved all function return values and error codes to a new enumerator.
+ *  Removed the mdbTable structure. It will be handled by the virtual machine.
 */
 
 #ifndef MDB_H_INCLUDED
@@ -51,6 +52,7 @@ typedef enum mdbError
   MDB_BTREE_KEY_NOT_FOUND,
   MDB_BTREE_KEY_COLLISION,
   MDB_BTREE_ROOT_IS_EMPTY,
+  MDB_BTREE_NO_MORE_RECORDS,
   MDB_CANNOT_CREATE_FILE,
   MDB_INVALID_FILE,
   MDB_TABLE_NOT_FOUND
@@ -79,9 +81,8 @@ typedef struct mdbDatabase mdbDatabase;
 
 /* forward declarations of the table structures */
 typedef struct mdbTable mdbTable;
-typedef struct mdbTableRecord mdbTableRecord;
-typedef struct mdbColumnRecord mdbColumnRecord;
-typedef struct mdbIndexRecord mdbIndexRecord;
+typedef struct mdbColumn mdbColumn;
+typedef struct mdbIndex mdbIndex;
 
 #include "mdbtypes.h"
 
@@ -99,6 +100,9 @@ mdbError mdbBtreeCreate(mdbBtree** tree,
 
 /* B-tree node allocation function */
 mdbError mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree);
+
+/* Frees up the memory used by a B-tree node (with eventual save) */
+mdbError mdbFreeNode(mdbBtreeNode* node, uint8 save);
 
 /* B-tree search */
 mdbError mdbBtreeSearch(const char* key, char* record, mdbBtree* t);
@@ -136,20 +140,27 @@ mdbError mdbCloseDatabase(mdbDatabase *db);
 /* ********************************************************* *
  *    Table related functions
  * ********************************************************* */
-/* Loads the meta data, B-tree descriptor and root node of a table */
-mdbError mdbFreeTable(mdbTable *t);
 
 /* creates the system tables and writes them to a file */
 mdbError mdbCreateSystemTables(mdbDatabase *db);
 
-/* Loads meta data, B-tree descriptor and root node of the system tables */
-mdbError mdbLoadSystemTables(mdbDatabase *db);
-
-/* Creates a table and stores its B-tree and root node into the database */
-mdbError mdbCreateTable(mdbTable *t);
+/* Creates a table and stores its B-tree and root node in the database */
+mdbError mdbCreateTable(
+    mdbDatabase *db,
+    const char *name,
+    uint8 num_columns,
+    uint32 record_size,
+    mdbBtree** btree,
+    void *cls,
+    mdbColumnRetrievalPtr cb);
 
 /* Loads the meta data, B-tree descriptor and root node of a table */
-mdbError mdbLoadTable(mdbDatabase *db, mdbTable **t, const char *name);
+mdbError mdbLoadTable(
+    mdbDatabase *db,
+    const char *name,
+    mdbBtree **btree,
+    void *cls,
+    mdbColumnCallbackPtr cb);
 
 /* ********************************************************* */
 /* ********************************************************* */

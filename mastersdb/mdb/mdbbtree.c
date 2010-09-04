@@ -58,12 +58,27 @@
 
 mdbBtreeNode* mdbReadNode(const uint32 position, mdbBtree* tree)
 {
-  return NULL;
+  mdbBtreeNode *node;
+  mdbAllocateNode(&node, tree);
+  node->position = position;
+  fseek(tree->file, position, SEEK_SET);
+  fread(node->data, tree->nodeSize, 1, tree->file);
+  return node;
 }
 
 uint32 mdbWriteNode(mdbBtreeNode* node)
 {
-  return 0L;
+  if (node->position > 0)
+  {
+    fseek(node->T->file, node->position, SEEK_SET);
+  }
+  else
+  {
+    fseek(node->T->file, 0, SEEK_END);
+    node->position = ftell(node->T->file);
+  }
+  fwrite(node->data, node->T->nodeSize, 1, node->T->file);
+  return node->position;
 }
 
 void mdbDeleteNode(mdbBtreeNode* node)
@@ -99,6 +114,20 @@ mdbError mdbAllocateNode(mdbBtreeNode** node, mdbBtree *tree)
   (*node)->records = (char*)((*node)->children + (tree->meta.order << 1));
   (*node)->T = tree;
   (*node)->position = 0L;
+
+
+  return MDB_NO_ERROR;
+}
+
+/* Frees up the memory used by a B-tree node (with eventual save) */
+mdbError mdbFreeNode(mdbBtreeNode* node, uint8 save)
+{
+  if (save > 0)
+  {
+    node->position = mdbWriteNode(node);
+  }
+  free (node->data);
+  free (node);
 
   return MDB_NO_ERROR;
 }
@@ -733,7 +762,7 @@ mdbError mdbBtreeTraverse(mdbBtreeTraversal **t, char *record)
       if ((*t)->parent == NULL)
       {
         /* no more records */
-        return MDB_BTREE_KEY_NOT_FOUND;
+        return MDB_BTREE_NO_MORE_RECORDS;
       }
       tmp = (*t)->parent;
       free((*t)->node->data);

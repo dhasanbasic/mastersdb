@@ -62,6 +62,7 @@ public:
 class MdbResultSet
 {
 private:
+  void *DB;                 // internal pointer to database
 
   // MdbDatabase can construct objects of this class
   friend class MdbDatabase;
