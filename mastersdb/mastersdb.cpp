@@ -10,73 +10,71 @@ int main(int argc, char **argv)
   MdbDatabase *db;
   MdbResultSet *rs;
 
-  db = MdbDatabase::CreateDatabase("test.mrdb");
-
-  rs = db->ExecuteMQL("CREATE TABLE Osobe (Ime STRING(20), Prezime STRING(50));");
-  if (rs == NULL)
-  {
-    cout << "Table successfully created!" << endl;
-    cout << endl;
-  }
-
-  rs = db->ExecuteMQL("INSERT INTO Osobe ('Dinko','Hasanbašić');");
-  rs = db->ExecuteMQL("INSERT INTO Osobe ('Denis','Hasanbašić');");
-  rs = db->ExecuteMQL("INSERT INTO Osobe ('Amar','Trnka');");
-  rs = db->ExecuteMQL("INSERT INTO Osobe ('Dino','Merzić');");
-  rs = db->ExecuteMQL("INSERT INTO Osobe ('Daria','Roić');");
-  if (rs == NULL)
-  {
-    cout << "Records sucessfully inserted!" << endl;
-    cout << endl;
-  }
-
-  delete db;
+//  db = MdbDatabase::CreateDatabase("test.mrdb");
+//
+//  cout << "=============================================" << endl;
+//  cout << "              Creating tables                " << endl;
+//  cout << "=============================================" << endl;
+//
+//  rs = db->ExecuteMQL("CREATE TABLE Odjeli (ID INT-8, Naziv STRING(20));");
+//  rs = db->ExecuteMQL("CREATE TABLE Zaposleni (Ime STRING(20), Prezime STRING(40), Odjel INT-8);");
+//
+//  cout << "=============================================" << endl;
+//  cout << "             Inserting records               " << endl;
+//  cout << "=============================================" << endl;
+//
+//  rs = db->ExecuteMQL("INSERT INTO Odjeli VALUES (1,'System Testing');");
+//  rs = db->ExecuteMQL("INSERT INTO Odjeli VALUES (2,'Development');");
+//  rs = db->ExecuteMQL("INSERT INTO Odjeli VALUES (3,'Poduct Management');");
+//
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Dinko','Hasanbašić', 2);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Jasmin','Velić', 1);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Amar','Trnka', 2);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Edin','Deljkić', 3);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Davor','Kovačić', 2);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Aida','Riković', 1);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Ferid','Ajanović', 3);");
+//  rs = db->ExecuteMQL("INSERT INTO Zaposleni VALUES ('Adnan','Behram', 1);");
+//
+//  delete db;
 
   db = MdbDatabase::OpenDatabase("test.mrdb");
 
-  rs = db->ExecuteMQL("DESCRIBE Osobe;");
+//  rs = db->ExecuteMQL(
+//      "SELECT Ime, Prezime"
+//      " FROM Zaposleni;");
+//  if (rs != NULL)
+//  {
+//    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
+//    cout << endl;
+//    do
+//    {
+//      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
+//      cout << rs->GetIntValue(2) << endl;
+//    }
+//    while (rs->ToNext());
+//    delete rs;
+//    cout << endl;
+//  }
+
+
+  rs = db->ExecuteMQL(
+      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Odjeli.Naziv"
+      " FROM Zaposleni, Odjeli"
+      " WHERE Zaposleni.Odjel = Odjeli.ID;");
   if (rs != NULL)
   {
-    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
-    cout << endl;
-    do
-    {
-      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
-      cout << rs->GetIntValue(2) << "\t" << (uint32_t)rs->GetIntValue(3) << endl;
-    }
-    while (rs->ToNext());
+//    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
+//    cout << endl;
+//    do
+//    {
+//      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
+//      cout << rs->GetIntValue(2) << endl;
+//    }
+//    while (rs->ToNext());
     delete rs;
-    cout << endl;
+//    cout << endl;
   }
-
-  rs = db->ExecuteMQL("SELECT * FROM Osobe;");
-  if (rs != NULL)
-  {
-    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
-    cout << endl;
-    do
-    {
-      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << endl;
-    }
-    while (rs->ToNext());
-    delete rs;
-    cout << endl;
-  }
-
-  rs = db->ExecuteMQL("SELECT Prezime FROM Osobe;");
-  if (rs != NULL)
-  {
-    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
-    cout << endl;
-    do
-    {
-      cout << rs->GetStringValue(0) << endl;
-    }
-    while (rs->ToNext());
-    delete rs;
-    cout << endl;
-  }
-
 
   delete db;
 

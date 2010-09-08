@@ -22,6 +22,8 @@
  * ----------------
  * 02.09.2010
  *  Initial version of file.
+ * 06.09.2010
+ *  Added the ResetRecords method.
  */
 
 #include "mdbVirtualTable.h"
@@ -190,6 +192,19 @@ bool mdbVirtualTable::NextRecord()
   return (ret != MDB_BTREE_NO_MORE_RECORDS);
 }
 
+void mdbVirtualTable::ResetRecords()
+{
+  if (traversal != NULL)
+  {
+    while (traversal->parent != NULL)
+    {
+      mdbFreeNode(traversal->node, 0);
+      traversal = traversal->parent;
+    }
+    traversal->position = 0;
+  }
+}
+
 void mdbVirtualTable::Reset()
 {
   uint32 c;
@@ -207,6 +222,8 @@ void mdbVirtualTable::Reset()
       delete columns[c];
     }
   }
+
+  ResetRecords();
 
   delete traversal;
   delete[] record;

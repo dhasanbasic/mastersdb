@@ -47,6 +47,11 @@
  *  Fixed an VM initialization bug.
  * 21.08.2010
  *  The results from executions are now returned by Execute().
+ * 06.09.2010
+ *  Implemented a few SELECT .. WHERE specific instructions:
+ *  - RSTTBL : ResetTable()
+ *  - CMP    : Compare().
+ *  Implemented
  */
 
 #include "mdbVirtualMachine.h"
@@ -250,6 +255,15 @@ void mdbVirtualMachine::DescribeTable()
 }
 
 /*
+ * Resets the state of the virtual table at "address" DATA, so
+ * that the next NXTREC instruction will start from its beginning.
+ */
+void mdbVirtualMachine::ResetTable()
+{
+  tables[data]->ResetRecords();
+}
+
+/*
  * Copies the column with name memory[DATA] of the current virtual table
  * to the result column store. If the name equals the asterisk sign (*)
  * all columns of the current virtual table are copied.
@@ -271,6 +285,88 @@ void mdbVirtualMachine::CopyColumn()
     // copies the specific column meta-data to the current virtual table
     results->addColumn(tables[tp]->getColumn(memory[data]));
   }
+}
+
+/*
+ * Performs a comparison of type "DATA" (see mdbOperationType) for the
+ * two values described in the four parameters on stack:
+ *
+ * Compares the two columns or column and value based on following
+ * parameters on stack:
+ *    _pop() = left operand meta-data
+ *    _pop() = left operand memory address
+ *    _pop() = right operand meta-data
+ *    _pop() = right operand memory address
+ */
+void mdbVirtualMachine::Compare()
+{
+  mdbDatatype *type;
+  char *left_val;
+  char *right_val;
+  uint32 size;
+  int cmpval;
+  uint16 result;
+
+  uint16 left_meta = _pop();
+  uint16 left_addr = _pop();
+  uint16 right_meta = _pop();
+  uint16 right_addr = _pop();
+
+  // initializes the left operand
+  type = db->datatypes +
+      (tables[left_meta & 0x000F]->getColumn(memory[left_addr]))->type;
+  left_val = tables[left_meta & 0x000F]->getValue(memory[left_addr]);
+
+  // initializes the right operand based on its type
+  right_val = (right_meta & 0x0010) ? memory[right_addr] :
+      tables[right_meta & 0x000F]->getValue(memory[right_addr]);
+
+  // compares the two values based on their type
+  if (type->header > 0)
+  {
+    size = *((uint32*)left_val);
+    if (size > *((uint32*)right_val))
+    {
+      size = *((uint32*)right_val);
+    }
+    left_val += type->header;
+    right_val += type->header;
+  }
+  else
+  {
+    size = type->size;
+  }
+  cmpval = type->compare(left_val, right_val, size);
+
+
+  // determines the comparison result base
+  result = MVI_FAILURE;
+
+  switch ((mdbOperationType)data)
+  {
+    case MDB_LESS:
+      if (cmpval < 0) result = MVI_SUCCESS;
+      break;
+    case MDB_GREATER:
+      if (cmpval > 0) result = MVI_SUCCESS;
+      break;
+    case MDB_EQUAL:
+      if (cmpval == 0) result = MVI_SUCCESS;
+      break;
+    case MDB_GREATER_OR_EQUAL:
+      if (cmpval >= 0) result = MVI_SUCCESS;
+      break;
+    case MDB_LESS_OR_EQUAL:
+      if (cmpval <= 0) result = MVI_SUCCESS;
+      break;
+    case MDB_NOT_EQUAL:
+      if (cmpval != 0) result = MVI_SUCCESS;
+      break;
+    default:
+      break;
+  }
+
+  _push(result);
 }
 
 /*

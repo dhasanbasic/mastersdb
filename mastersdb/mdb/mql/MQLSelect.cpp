@@ -25,6 +25,8 @@
  * 18.08.2010
  *  No more need for the allColumns flag.
  *  GenSingleTableSelect() re-factoring.
+ * 04.09.2010
+ *  Implemented WHERE conditions support.
  */
 
 #include "MQLSelect.h"
@@ -35,103 +37,176 @@ namespace MDB
 MQLSelect::MQLSelect()
 {
   MDB_DEFAULT = ".Default";
+  where = NULL;
 }
 
 /*
  * Maps a column identifier to a data pointer.
  */
-bool MQLSelect::MapColumn(string *column, string *table, uint16 dp)
+void MQLSelect::MapColumn(
+    string *column,
+    string *table,
+    uint16 &dp,
+    mdbTableInfo* &ti,
+    bool destination)
 {
   string cTable = (table == NULL) ? MDB_DEFAULT : (*table);
   string cColumn = *column;
-  mdbCMap *columns;
 
   char *name;
 
-  mdbTMapIter t;
-  mdbCMapResult c;
+  mdbTableInfo *l_ti;
+  mdbTableMapIterator t;
+  mdbColumnMapResult c;
 
   // if the table name is encountered for the first time
   if ((t = tables.find(cTable)) == tables.end())
   {
-    // create a new column map
-    columns = new mdbCMap();
-    (*columns)[cColumn] = dp;
-    // store the column name in the VM memory
+    // creates a new table info
+    l_ti = new mdbTableInfo;
+
+    // stores the table name in the VM memory
+    l_ti->dp = dp;
+    l_ti->tp = tables.size();
+
+    if (cTable != MDB_DEFAULT)
+    {
+      name = (char*)malloc(cTable.length() + 4);
+      cTable.copy(name + 4, cTable.length());
+      *((uint32*)name) = cTable.length();
+      VM->StoreData(name, dp++);
+    }
+
+    // stores the column name in the VM memory
+    l_ti->columns[cColumn] = dp;
+    l_ti->cdp = dp;
+
     name = (char*)malloc(cColumn.length() + 4);
     cColumn.copy(name + 4, cColumn.length());
     *((uint32*)name) = cColumn.length();
-    VM->StoreData(name, dp);
-    // store the new column map in the table
-    tables[cTable] = mdbTMapItem(0, columns);
+    VM->StoreData(name, dp++);
+
+    tables[cTable] = l_ti;
+    ti = l_ti;
   }
   // otherwise, insert the column name in the appropriate column map
   else
   {
-    columns = t->second.second;
-    c = columns->insert(mdbCMapPair(cColumn, dp));
+    c = t->second->columns.insert(mdbColumnMapPair(cColumn, dp));
     // if the insert succeeded, store the column name in the VM memory
     if (c.second)
     {
       name = (char*)malloc(cColumn.length() + 4);
       cColumn.copy(name + 4, cColumn.length());
       *((uint32*)name) = cColumn.length();
-      VM->StoreData(name, dp);
+      VM->StoreData(name, dp++);
     }
-    destColumns.push_back(mdbDestinationColumn(cTable, cColumn));
-    return (c.second);
+    ti = t->second;
+    ti->cdp = c.first->second;
   }
 
-  destColumns.push_back(mdbDestinationColumn(cTable, cColumn));
-
-  return true;
+  if (destination)
+  {
+    destColumns.push_back(mdbDestinationColumn(cTable, cColumn));
+  }
 }
 
 /*
- * Maps a table identifier to a data pointer.
+ * Resolves the default table
  */
-void MQLSelect::MapTable(string *table, uint16 tp)
+void MQLSelect::ResolveDefaultTable(string *name, uint16 &dp)
 {
-  mdbTMapItem ti;
-  mdbTMapIter iter;
+  mdbTableMapIterator iter;
   uint16 i;
-  string cTable = *table;
+  string cTable = *name;
+  char *data;
 
-  if (tables.size() == 1)
+  iter = tables.begin();
+  if (iter->first == MDB_DEFAULT)
   {
-    iter = tables.begin();
-    if (iter->first == MDB_DEFAULT)
+    tables[cTable] = iter->second;
+
+    iter->second->dp = dp;
+    data = (char*)malloc(cTable.length() + 4);
+    cTable.copy(data + 4, cTable.length());
+    *((uint32*)data) = cTable.length();
+    VM->StoreData(data, dp++);
+
+    iter->second->tp++;
+
+    while (++iter != tables.end())
     {
-      ti = tables[MDB_DEFAULT];
-      ti.first = tp;
-      tables[cTable] = ti;
-      tables.erase(MDB_DEFAULT);
+      iter->second->tp--;
     }
-    for (i = 0; i < destColumns.size(); i++)
-    {
-      if (destColumns[i].first == MDB_DEFAULT)
-      {
-        destColumns[i].first = cTable;
-      }
-    }
+    tables.erase(MDB_DEFAULT);
   }
-  else
+  for (i = 0; i < destColumns.size(); i++)
   {
-    iter = tables.find(cTable);
-    iter->second.first = tp;
+    if (destColumns[i].first == MDB_DEFAULT)
+    {
+      destColumns[i].first = cTable;
+    }
   }
 }
 
 void MQLSelect::Reset()
 {
-  mdbTMapIter t;
+  mdbTableMapIterator t;
 
   for (t = tables.begin(); t != tables.end(); t++)
   {
-    delete t->second.second;
+    delete t->second;
   }
   tables.clear();
   destColumns.clear();
+
+  if (where != NULL) {
+    delete where;
+  }
+}
+
+/*
+ * Generates the byte code for loading all tables
+ */
+void MQLSelect::GenLoadTables()
+{
+  mdbTableMapIterator iter;
+
+  // Phase 1 - load the tables
+  // ------------------------------------------------------------------
+  for (iter = tables.begin(); iter != tables.end(); iter++)
+  {
+    // SET TABLE
+    VM->AddInstruction(mdbVirtualMachine::SETTBL, iter->second->tp);
+    // LOAD TABLE with name memory[DATA]
+    VM->AddInstruction(mdbVirtualMachine::LDTBL, iter->second->dp);
+  }
+}
+
+/*
+ * Defines the destination columns based on the selected columns
+ */
+void MQLSelect::GenDefineResults(bool &asterisk)
+{
+  uint8 c;
+  uint16 pTable, pColumn;
+
+  for (c = 0; c < destColumns.size(); c++)
+  {
+    if (destColumns[c].second == "*") asterisk = true;
+    // retrieve the table and column name pointers
+    pTable = tables[destColumns[c].first]->tp;
+    pColumn = tables[destColumns[c].first]->columns[destColumns[c].second];
+    // SET TABLE
+    VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
+    // COPY COLUMN (to result columns)
+    VM->AddInstruction(mdbVirtualMachine::CPYCOL, pColumn);
+  }
+}
+
+void MQLSelect::GenTableLoop()
+{
+
 }
 
 /*
@@ -140,53 +215,20 @@ void MQLSelect::Reset()
  */
 void MQLSelect::GenerateBytecode()
 {
-  // TODO: add check for if there was a WHERE clause.
-  GenSingleTableSelect();
-}
-
-/*
- * Generates the MVI byte-code for "SELECT * FROM table;"
- */
-void MQLSelect::GenSingleTableSelect()
-{
-  uint8 c;
-  mdbTMapIter iter;
-  uint32 len;
+  mdbTableMapIterator iter = tables.begin();
   uint16 jmp, fail;
+  uint8 c;
   uint16 pTable, pColumn;
   bool asterisk = false;
 
-  char *name;
-
-  // Phase 1 - load the table
+  // Phase 1 - load the tables
   // ------------------------------------------------------------------
-  iter = tables.begin();
-  // SET TABLE
-  VM->AddInstruction(mdbVirtualMachine::SETTBL, iter->second.first);
-  // store the table name
-  len = iter->first.length();
-  name = (char*) malloc(len + 4);
-  iter->first.copy(name + 4, len);
-  *((uint32*)name) = len;
-  VM->StoreData(name, dptr);
-  // LOAD TABLE with name memory[DATA]
-  VM->AddInstruction(mdbVirtualMachine::LDTBL, dptr++);
+  GenLoadTables();
   // ------------------------------------------------------------------
 
-  // Phase 2 - Define the destination columns
-  // based on the selected columns
+  // Phase 2 - Define the result table structure
   // ------------------------------------------------------------------
-  for (c = 0; c < destColumns.size(); c++)
-  {
-    if (destColumns[c].second == "*") asterisk = true;
-    // retrieve the table and column name pointers
-    pTable = tables[destColumns[c].first].first;
-    pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
-    // SET TABLE
-    VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
-    // COPY COLUMN (to result columns)
-    VM->AddInstruction(mdbVirtualMachine::CPYCOL, pColumn);
-  }
+  GenDefineResults(asterisk);
   // ------------------------------------------------------------------
 
   // Phase 3 - The record retrieval loop (: Yes! It's a loop :)
@@ -195,7 +237,7 @@ void MQLSelect::GenSingleTableSelect()
   jmp = VM->getCodePointer();
 
   // NEXT RECORD
-  VM->AddInstruction(mdbVirtualMachine::NXTREC, iter->second.first);
+  VM->AddInstruction(mdbVirtualMachine::NXTREC, iter->second->tp);
 
   // NO OPERATION (place-holder for JUMP ON FAILURE)
   fail = VM->getCodePointer();
@@ -205,7 +247,7 @@ void MQLSelect::GenSingleTableSelect()
   if (asterisk)
   {
     // COPY RECORD of tables[DATA] to the result store
-    VM->AddInstruction(mdbVirtualMachine::CPYREC, iter->second.first);
+    VM->AddInstruction(mdbVirtualMachine::CPYREC, iter->second->tp);
     // JUMP to instruction
     VM->AddInstruction(mdbVirtualMachine::JMP, jmp);
     // rewrites the NOP operation from above to be a
@@ -221,8 +263,8 @@ void MQLSelect::GenSingleTableSelect()
     for (c = 0; c < destColumns.size(); c++)
     {
       // retrieve the table and column name pointers
-      pTable = tables[destColumns[c].first].first;
-      pColumn = tables[destColumns[c].first].second->at(destColumns[c].second);
+      pTable = tables[destColumns[c].first]->tp;
+      pColumn = tables[destColumns[c].first]->columns[destColumns[c].second];
       // COPY VALUE of column memory[DATA] (to current result columns)
       VM->AddInstruction(mdbVirtualMachine::CPYVAL, pColumn);
     }

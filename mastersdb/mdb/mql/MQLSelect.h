@@ -26,6 +26,8 @@
  *  Moved mdbCMap type definitions to MastersDBVM.h.
  *  No more need for the allColumns flag.
  *  GenSingleTableSelect() re-factoring.
+ * 04.09.2010
+ *  Added mdbCondition structure.
  */
 
 #ifndef MQLSELECT_H_
@@ -37,12 +39,41 @@ using namespace std;
 
 namespace MDB
 {
+
+struct mdbOperation
+{
+  mdbOperation *left_child;         // left child
+  mdbOperation *right_child;        // right child
+  mdbOperationType type;            // type of comparison operation
+  uint16 left;                      // left operand specification
+  uint16 right;                     // right operand specification
+
+  /* operand specification
+   * ---------------------------
+   *  0(X)[XX XX]{XX XXXX XXXX}
+   * ---------------------------
+   * (X) = 0 : the operand is a column
+   *       1 : the operand is an explicit value
+   *
+   * [XXXX] = index of virtual table
+   *
+   * {XX XXXX XXXX} = virtual machine memory address of column or direct value
+   */
+};
+
 // Table map typedefs
-typedef pair<uint16,mdbCMap*>     mdbTMapItem;
-typedef map<string,mdbTMapItem>   mdbTMap;
-typedef pair<string,mdbTMapItem>  mdbTMapPair;
-typedef mdbTMap::iterator         mdbTMapIter;
-typedef pair<mdbTMapIter,bool>    mdbTMapResult;
+struct mdbTableInfo
+{
+  uint8 tp;
+  uint16 dp;
+  uint16 cdp;
+  mdbColumnMap columns;
+};
+
+typedef map<string,mdbTableInfo*>   mdbTableMap;
+typedef pair<string,mdbTableInfo*>  mdbTableMapPair;
+typedef mdbTableMap::iterator         mdbTableMapIterator;
+typedef pair<mdbTableMapIterator,bool>    mdbTableMapResult;
 
 // Destination columns
 typedef pair<string,string>       mdbDestinationColumn;
@@ -52,22 +83,37 @@ class MQLSelect
 private:
   string MDB_DEFAULT;
   vector<mdbDestinationColumn> destColumns;
-  mdbTMap tables;
+  mdbTableMap tables;
   mdbVirtualMachine *VM;
   uint16 dptr;
+  mdbOperation *where;
 
-  void GenSingleTableSelect();
+  void GenLoadTables();
+  void GenDefineResults(bool &asterisk);
+  void GenTableLoop();
 
 public:
   MQLSelect();
-  bool MapColumn(string *column, string *table, uint16 dp);
-  void MapTable(string *table, uint16 tp);
+
+  void MapColumn(
+      string *column,
+      string *table,
+      uint16 &dp,
+      mdbTableInfo* &ti,
+      bool destination = true);
+
+  void ResolveDefaultTable(string *table, uint16& dp);
   void Reset();
   void GenerateBytecode();
 
   void setDataPointer(uint16 dptr)
   {
     this->dptr = dptr;
+  }
+
+  void setOperation(mdbOperation *oper)
+  {
+    where = oper;
   }
 
   void setVM(mdbVirtualMachine *vm)

@@ -22,7 +22,9 @@
  * ----------------
  * 02.09.2010
  *  Initial version of file.
- */
+ * 06.09.2010
+ *  Added the ResetRecords method.
+  */
 
 #ifndef MDBVIRTUALTABLE_H_
 #define MDBVIRTUALTABLE_H_
@@ -42,10 +44,10 @@ namespace MDB
 {
 
 // Column map typedefs
-typedef map<string,uint8>         mdbCMap;
-typedef pair<string,uint8>        mdbCMapPair;
-typedef mdbCMap::iterator         mdbCMapIter;
-typedef pair<mdbCMapIter,bool>    mdbCMapResult;
+typedef map<string,uint8>                 mdbColumnMap;
+typedef pair<string,uint8>                mdbColumnMapPair;
+typedef mdbColumnMap::iterator            mdbColumnMapIterator;
+typedef pair<mdbColumnMapIterator,bool>   mdbColumnMapResult;
 
 class mdbVirtualTable
 {
@@ -53,7 +55,7 @@ private:
   mdbDatabase *db;              // pointer to MastersDB database
   vector<mdbColumn*> columns;   // the table columns
   vector<uint32> cpos;          // column value positions in the record
-  mdbCMap cmap;                 // used for mapping column names to indexes
+  mdbColumnMap cmap;            // used for mapping column names to indexes
   mdbBtree *T;                  // the table B-tree
   mdbBtreeTraversal *traversal; // used for traversing the B-tree
   uint8 cp;                     // current column
@@ -94,6 +96,8 @@ public:
 
   void InsertRecord();
   bool NextRecord();
+
+  void ResetRecords();
 
   void Reset();
 

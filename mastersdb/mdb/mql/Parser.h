@@ -41,7 +41,6 @@ private:
 		_IDENTIFIER=2,
 		_COLUMN=3,
 		_STRING=4,
-		_OPERATOR=5,
 	};
 	int maxT;
 
@@ -69,7 +68,7 @@ mdbVirtualMachine *VM;
 MQLSelect *select;
 
 uint16 dp;
-uint16 tp;
+uint8 tp;
 
 string* TokenToString()
 {
@@ -111,8 +110,10 @@ void setSelect (MQLSelect *select)
 	void MQLValue();
 	void MQLColumns();
 	void MQLTables();
-	void MQLColumn();
-	void MQLTable();
+	void MQLConditions();
+	void MQLColumn(bool destination, mdbTableInfo* &ti);
+	void MQLCondition();
+	void MQLConditionType(mdbOperation *op);
 
 	void Parse(const unsigned char* buf, int len);
 

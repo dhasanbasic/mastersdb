@@ -27,6 +27,8 @@
 #include "MastersDB.h"
 #include "mdb/mql/Parser.h"
 
+#include <iostream>
+
 using namespace MDB;
 
 namespace MastersDB
@@ -92,9 +94,15 @@ MdbResultSet* MdbDatabase::ExecuteMQL(string statement)
   Parser *p = (Parser*)P;
   mdbQueryResults *rs;
   MdbResultSet *mrs;
+  string s;
   if (vm != NULL)
   {
     p->Parse((uint8_t*) statement.c_str(), statement.length());
+    s.append("Statement:\n");
+    s.append(statement);
+    s.append("\n");
+    s.append(vm->printVMsnapshot());
+    std::cout << s;
     if ((rs = vm->Execute()) != NULL)
     {
       mrs = new MdbResultSet();

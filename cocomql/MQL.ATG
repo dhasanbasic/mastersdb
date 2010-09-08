@@ -56,7 +56,7 @@ mdbVirtualMachine *VM;
 MQLSelect *select;
 
 uint16 dp;
-uint16 tp;
+uint8 tp;
 
 string* TokenToString()
 {
@@ -97,10 +97,10 @@ CHARACTERS
   qstr              = ANY - '\\' - '\"'.
   astr              = ANY - '\\' - '\''.
   
-  /* Digits, operators and identifier letters */
+  /* Digits and identifier letters */
   digit             = "0123456789".
-  operator          = "<=>".
   letter            = 'A' .. 'Z' + 'a' .. 'z' + special.
+  
 /* defines the tokens */
 TOKENS
   NUMBER	        = digit {digit}.
@@ -108,7 +108,6 @@ TOKENS
   COLUMN            = letter {letter} '.' letter {letter}.
   STRING            = '\"' { qstr | '\\' '\'' } '\"' |
                       '\'' { astr | '\\' '\"' } '\''.
-  OPERATOR          = operator | "<=" | ">=" | "<>".
 
 /* defines the comments */
 COMMENTS FROM "/*" TO "*/"
@@ -352,7 +351,7 @@ MQLSelectStatement =
   select->Reset();
 .)
 
-  "SELECT" MQLColumns "FROM" MQLTables
+  "SELECT" MQLColumns "FROM" MQLTables ["WHERE" MQLConditions]
 
 (.
   select->setDataPointer(dp);
@@ -365,26 +364,24 @@ MQLSelectStatement =
 MQLColumns =
 
 (.
+  mdbTableInfo *ti;
   string *table = NULL;
   string *column = NULL;
 .)
                            
-  '*'
+  ( '*'
 (.
   column = new string("*");
-  if (select->MapColumn(column, table, dp))
-  {
-     dp++;
-  };
+  select->MapColumn(column, table, dp, ti, true);
   delete column;
 .)
-
-  | MQLColumn {',' MQLColumn} .
+// TODO: Check this
+  | MQLColumn<true, ti> {',' MQLColumn<true, ti>} ) .
 
 /*
  * MQLColumn
  */
-MQLColumn =
+MQLColumn<bool destination, mdbTableInfo* &ti> =
 
 (.
   string *table = NULL;
@@ -409,10 +406,7 @@ MQLColumn =
   )
 
 (.
-  if (select->MapColumn(column, table, dp))
-  {
-     dp++;
-  };
+  select->MapColumn(column, table, dp, ti, destination);
   delete table;
   delete column;
   delete tmp;
@@ -421,12 +415,7 @@ MQLColumn =
 /*
  * MQLTables
  */
-MQLTables = MQLTable {',' MQLTable} .
-
-/*
- * MQLTable
- */
-MQLTable =
+MQLTables =
 
 (. string *table = NULL; .)
 
@@ -434,9 +423,63 @@ MQLTable =
 
 (.
   table = TokenToString();
-  select->MapTable(table, tp);
-  tp++;
+  select->ResolveDefaultTable(table, dp);
   delete table;
+.)
+
+  {',' IDENTIFIER} .
+
+/*
+ * MQLConditions
+ */
+MQLConditions = MQLCondition . /* { ("AND" | "OR") MQLCondition } . */
+
+/*
+ * MQLCondition
+ */
+MQLCondition =
+
+(.
+  mdbTableInfo *ti;
+  mdbOperation *op = new mdbOperation;
+  op->right = 0;
+.)
+
+  MQLColumn<false, ti>
+
+(.
+  op->left = ti->cdp;
+  op->left |= ti->tp<<10;
+.)
+
+  MQLConditionType<op>
+  
+  (
+    MQLColumn<false, ti>
+
+(.
+  op->right = ti->cdp;
+  op->right |= ti->tp<<10;
+.)
+
+    |
+    MQLValue              (. op->right |= 0x4000; .)
+  )
+
+(.
+  select->setOperation(op);
 .) .
+
+/*
+ * MQLConditionType
+ */
+MQLConditionType <mdbOperation *op> =
+
+    '<'      (. op->type = MDB_LESS; .)
+  | '>'      (. op->type = MDB_GREATER; .)
+  | '='      (. op->type = MDB_EQUAL; .)
+  | ">="     (. op->type = MDB_GREATER_OR_EQUAL; .)
+  | "<="     (. op->type = MDB_LESS_OR_EQUAL; .)
+  | "<>"     (. op->type = MDB_NOT_EQUAL; .) .
 
 END MQL .

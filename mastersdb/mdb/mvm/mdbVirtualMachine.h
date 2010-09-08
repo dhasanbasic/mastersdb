@@ -46,6 +46,8 @@
  *  Added a new instruction: NEWREC.
  * 21.08.2010
  *  The results from executions are now returned by Execute().
+ * 06.09.2010
+ *  Added two new instructions: RSTTBL and CMP.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -87,6 +89,17 @@ namespace MDB
 
 #define MVI_ENCODE(i,d)   (((uint16)i)<<10)+(d & MVI_DATA_MASK)
 
+// Type of operation (logical, comparison, arithmetic)
+enum mdbOperationType
+{
+  MDB_LESS,
+  MDB_GREATER,
+  MDB_EQUAL,
+  MDB_GREATER_OR_EQUAL,
+  MDB_LESS_OR_EQUAL,
+  MDB_NOT_EQUAL
+};
+
 class mdbVirtualMachine
 {
 private:
@@ -111,11 +124,13 @@ public:
     LDTBL,  // LOAD TABLE
     SETTBL, // SET TABLE
     DSCTBL, // DESCRIBE TABLE
+    RSTTBL, // RESET TABLE
     /*
      * Column operations
      */
     NEWCOL, // NEW COLUMN
     CPYCOL, // COPY COLUMN (to result columns)
+    CMP,    // COMPARE COLUMNS (column to column or column to value)
     /*
      * Table record operations
      */
@@ -220,6 +235,7 @@ private:
   void CreateTable();
   void LoadTable();
   void DescribeTable();
+  void ResetTable();
 
   void SetTable()
   {
@@ -229,6 +245,7 @@ private:
   // Column operations
   void NewColumn();
   void CopyColumn();
+  void Compare();
 
   // Source/Destination record operations
   void InsertValue();
@@ -301,6 +318,90 @@ public:
       results = new mdbQueryResults(db);
     }
     return NULL;
+  }
+
+  string printVMsnapshot()
+  {
+    string ret;
+    uint16 i;
+    uint32 len;
+    char buf[64];
+
+    ret.append("--------------------------------------\n");
+
+    ret.append("Program:\n\n");
+    for (i = 0; i < cp; i++)
+    {
+      _decode(i, ret);
+    }
+    ret.append("\n");
+
+    ret.append("Data:\n\n");
+    for (i = 0; i < MDB_VM_MEMORY_SIZE; i++)
+    {
+      if (memory[i] != NULL)
+      {
+        memset(buf, 0, 64);
+        len = *((uint32*)memory[i]);
+        sprintf(buf, "%u\t%u ", i, len);
+        ret.append(buf);
+        if (len > 0 && len < 64)
+        {
+          memset(buf, 0, 64);
+          strncpy(buf, memory[i] + 4, len);
+          ret.append(buf, len);
+        }
+        ret.append("\n");
+      }
+    }
+
+    ret.append("\n--------------------------------------\n");
+
+    return ret;
+  }
+
+  void _decode(uint16 instr, string &s)
+  {
+    uint8 _opcode = MVI_OPCODE(bytecode[instr]);
+    uint16 _data = MVI_DATA(bytecode[instr++]);
+    char _cdata[10];
+    int c;
+
+    c = sprintf(_cdata, "%u\t", instr);
+    s.append(_cdata, c);
+
+    switch ((mdbInstruction)_opcode) {
+      // No operation
+      case NOP:     s.append("NOP\t"); break;
+      // Stack operations
+      case PUSH:    s.append("PUSH\t"); break;
+      case POP:     s.append("POP\t"); break;
+      // Table operations
+      case CRTTBL:  s.append("CRTTBL\t"); break;
+      case LDTBL:   s.append("LDTBL\t"); break;
+      case SETTBL:  s.append("SETTBL\t"); break;
+      case DSCTBL:  s.append("DSCTBL\t"); break;
+      // Column operations
+      case NEWCOL:  s.append("NEWCOL\t"); break;
+      case CPYCOL:  s.append("CPYCOL\t"); break;
+      // Source record operations
+      case INSVAL:  s.append("INSVAL\t"); break;
+      case INSREC:  s.append("INSREC\t"); break;
+      case NXTREC:  s.append("NXTREC\t"); break;
+      case CPYREC:  s.append("CPYREC\t"); break;
+      case CPYVAL:  s.append("CPYVAL\t"); break;
+      case NEWREC:  s.append("NEWREC\t"); break;
+      // VM control operations
+      case JMP:     s.append("JMP\t"); break;
+      case JMPF:    s.append("JMPF\t"); break;
+      case HALT:    s.append("HALT\t"); break;
+      default:
+        break;
+    }
+
+    c = sprintf(_cdata, "%u", _data);
+    s.append(_cdata, c);
+    s.append("\n");
   }
 
   virtual ~mdbVirtualMachine();
