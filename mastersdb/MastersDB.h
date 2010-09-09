@@ -22,6 +22,8 @@
  * ----------------
  * 21.08.2010
  *  Initial version of file.
+ * 09.09.2010
+ *  Added GetColumnCount, GetColumnName, GetColumnType methods.
  */
 
 
@@ -33,6 +35,16 @@
 
 namespace MastersDB
 {
+
+// MastersDB data types
+enum MdbDatatypes
+{
+  MDB_INT_8,
+  MDB_INT_16,
+  MDB_INT_32,
+  MDB_FLOAT,
+  MDB_STRING
+};
 
 // forward declarations of the MastersDB classes
 class MdbDatabase;
@@ -79,10 +91,17 @@ public:
   virtual ~MdbResultSet() { Close(); }
   void Close();
   uint32_t GetRecordCount();
+
   bool ToFirst();
   bool ToNext();
   bool ToPrevious();
   bool ToLast();
+
+  uint8_t GetColumnCount();
+  std::string GetColumnName(uint8_t column);
+  MdbDatatypes GetColumnType(uint8_t column);
+  MdbDatatypes GetColumnType(std::string column);
+
   int32_t GetIntValue(uint8_t column);
   int32_t GetIntValue(std::string column);
   std::string GetStringValue(uint8_t column);

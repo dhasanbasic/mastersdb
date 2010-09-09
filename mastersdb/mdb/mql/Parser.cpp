@@ -352,6 +352,11 @@ void Parser::MQLCondition() {
 			MQLValue();
 			op->right |= 0x4000; 
 		} else SynErr(38);
+		if ((op->left ^ op->right) & 0x3C00)
+		{
+		  select->addJoin((op->left & 0x3C00)>>10);
+		  select->addJoin((op->right & 0x3C00)>>10);
+		}
 		select->setOperation(op);
 		
 }

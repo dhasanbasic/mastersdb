@@ -5,6 +5,48 @@
 using namespace MastersDB;
 using namespace std;
 
+void printResults(MdbResultSet *rs)
+{
+  uint8_t c;
+  if (rs != NULL)
+  {
+    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
+    cout << endl;
+    cout << rs->GetColumnName(0);
+    for (c = 1; c < rs->GetColumnCount(); c++)
+    {
+      cout << "\t" << rs->GetColumnName(c);
+    }
+    do
+    {
+      cout << endl;
+
+      if (rs->GetColumnType(0) == MDB_STRING)
+      {
+        cout << rs->GetStringValue(0);
+      }
+      else
+      {
+        cout << rs->GetIntValue(0);
+      }
+      for (c = 1; c < rs->GetColumnCount(); c++)
+      {
+        cout <<  "\t";
+        if (rs->GetColumnType(c) == MDB_STRING)
+        {
+          cout << rs->GetStringValue(c);
+        }
+        else
+        {
+          cout << rs->GetIntValue(c);
+        }
+      }
+    }
+    while (rs->ToNext());
+    cout << endl;
+  }
+}
+
 int main(int argc, char **argv)
 {
   MdbDatabase *db;
@@ -40,41 +82,26 @@ int main(int argc, char **argv)
 
   db = MdbDatabase::OpenDatabase("test.mrdb");
 
+//  rs = db->ExecuteMQL("SELECT * FROM Zaposleni;");
+//  printResults(rs);
+//  delete rs;
+//
+//  rs = db->ExecuteMQL("SELECT Ime, Prezime FROM Zaposleni;");
+//  printResults(rs);
+//  delete rs;
+//
 //  rs = db->ExecuteMQL(
-//      "SELECT Ime, Prezime"
-//      " FROM Zaposleni;");
-//  if (rs != NULL)
-//  {
-//    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
-//    cout << endl;
-//    do
-//    {
-//      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
-//      cout << rs->GetIntValue(2) << endl;
-//    }
-//    while (rs->ToNext());
-//    delete rs;
-//    cout << endl;
-//  }
-
+//      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Odjeli.Naziv"
+//      " FROM Zaposleni, Odjeli;");
+//  printResults(rs);
+//  delete rs;
 
   rs = db->ExecuteMQL(
-      "SELECT Zaposleni.Ime, Zaposleni.Prezime, Odjeli.Naziv"
-      " FROM Zaposleni, Odjeli"
-      " WHERE Zaposleni.Odjel = Odjeli.ID;");
-  if (rs != NULL)
-  {
-//    cout << "Retrieved " << rs->GetRecordCount() << " records!" << endl;
-//    cout << endl;
-//    do
-//    {
-//      cout << rs->GetStringValue(0) << "\t" << rs->GetStringValue(1) << "\t";
-//      cout << rs->GetIntValue(2) << endl;
-//    }
-//    while (rs->ToNext());
-    delete rs;
-//    cout << endl;
-  }
+  "SELECT Zaposleni.Ime, Zaposleni.Prezime, Odjeli.Naziv"
+  " FROM Zaposleni, Odjeli"
+  " WHERE Zaposleni.Odjel = Odjeli.ID;");
+  printResults(rs);
+  delete rs;
 
   delete db;
 

@@ -102,13 +102,12 @@ enum mdbOperationType
 
 class mdbVirtualMachine
 {
-private:
+public:
   static const uint16 MDB_VM_BYTECODE_SIZE = 1024;
   static const uint16 MDB_VM_MEMORY_SIZE = 1024;
   static const uint16 MDB_VM_STACK_SIZE = 64;
   static const uint16 MDB_VM_TABLES_SIZE = 8;
 
-public:
   enum mdbInstruction {
     // No operation
     NOP,
@@ -256,8 +255,8 @@ private:
   void NewRecord();
 
   // VM operations
-  void Reset();
-  void Decode();
+public:  void Reset();
+private:  void Decode();
 
   void Jump()
   {
@@ -363,7 +362,7 @@ public:
   void _decode(uint16 instr, string &s)
   {
     uint8 _opcode = MVI_OPCODE(bytecode[instr]);
-    uint16 _data = MVI_DATA(bytecode[instr++]);
+    uint16 _data = MVI_DATA(bytecode[instr]);
     char _cdata[10];
     int c;
 
@@ -381,9 +380,23 @@ public:
       case LDTBL:   s.append("LDTBL\t"); break;
       case SETTBL:  s.append("SETTBL\t"); break;
       case DSCTBL:  s.append("DSCTBL\t"); break;
+      case RSTTBL:  s.append("RSTTBL\t"); break;
       // Column operations
       case NEWCOL:  s.append("NEWCOL\t"); break;
       case CPYCOL:  s.append("CPYCOL\t"); break;
+      case CMP:
+        s.append("CMP\t");
+        switch ((mdbOperationType)data) {
+          case MDB_LESS:              s.append("' <':"); break;
+          case MDB_GREATER:           s.append("' >':"); break;
+          case MDB_EQUAL:             s.append("' =':"); break;
+          case MDB_GREATER_OR_EQUAL:  s.append("'>=':"); break;
+          case MDB_LESS_OR_EQUAL:     s.append("'<=':"); break;
+          case MDB_NOT_EQUAL:         s.append("'<>':"); break;
+          default:
+            break;
+        }
+        break;
       // Source record operations
       case INSVAL:  s.append("INSVAL\t"); break;
       case INSREC:  s.append("INSREC\t"); break;

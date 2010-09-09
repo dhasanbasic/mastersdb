@@ -27,6 +27,9 @@
  *  GenSingleTableSelect() re-factoring.
  * 04.09.2010
  *  Implemented WHERE conditions support.
+ * 08.09.2010
+ *  Added support for processing cross table joins.
+ *  Re-factoring of bytecode generation.
  */
 
 #include "MQLSelect.h"
@@ -159,6 +162,7 @@ void MQLSelect::Reset()
   }
   tables.clear();
   destColumns.clear();
+  joins.clear();
 
   if (where != NULL) {
     delete where;
@@ -189,22 +193,73 @@ void MQLSelect::GenLoadTables()
 void MQLSelect::GenDefineResults(bool &asterisk)
 {
   uint8 c;
-  uint16 pTable, pColumn;
+  uint16 pTable = mdbVirtualMachine::MDB_VM_TABLES_SIZE + 1;
+  uint16 pColumn;
+
+  if (destColumns[0].second == "*")
+  {
+    pTable = tables[destColumns[0].first]->tp;
+    pColumn = tables[destColumns[0].first]->columns[destColumns[0].second];
+    // SET TABLE
+    VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
+    // COPY COLUMN (to result columns)
+    VM->AddInstruction(mdbVirtualMachine::CPYCOL, pColumn);
+    asterisk = true;
+    return;
+  }
 
   for (c = 0; c < destColumns.size(); c++)
   {
-    if (destColumns[c].second == "*") asterisk = true;
     // retrieve the table and column name pointers
-    pTable = tables[destColumns[c].first]->tp;
+    if (pTable != tables[destColumns[c].first]->tp)
+    {
+      pTable = tables[destColumns[c].first]->tp;
+      // SET TABLE
+      VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
+    }
     pColumn = tables[destColumns[c].first]->columns[destColumns[c].second];
-    // SET TABLE
-    VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
     // COPY COLUMN (to result columns)
     VM->AddInstruction(mdbVirtualMachine::CPYCOL, pColumn);
   }
 }
 
-void MQLSelect::GenTableLoop()
+/*
+ * Creates a result record
+ */
+void MQLSelect::GenCopyResult(bool asterisk)
+{
+  uint8 c;
+  uint16 pTable = mdbVirtualMachine::MDB_VM_TABLES_SIZE + 1;
+  uint16 pColumn;
+
+  if (asterisk)
+  {
+    pTable = tables.begin()->second->tp;
+    // COPY RECORD of tables[DATA] to the result store
+    VM->AddInstruction(mdbVirtualMachine::CPYREC, pTable);
+    return;
+  }
+
+  // NEW RESULT RECORD
+  VM->AddInstruction(mdbVirtualMachine::NEWREC,
+      mdbVirtualMachine::MVI_SUCCESS);
+
+  for (c = 0; c < destColumns.size(); c++)
+  {
+    // retrieve the table and column name pointers
+    if (pTable != tables[destColumns[c].first]->tp)
+    {
+      pTable = tables[destColumns[c].first]->tp;
+      // SET TABLE
+      VM->AddInstruction(mdbVirtualMachine::SETTBL, pTable);
+    }
+    pColumn = tables[destColumns[c].first]->columns[destColumns[c].second];
+    // COPY VALUE of column memory[DATA] (to current result columns)
+    VM->AddInstruction(mdbVirtualMachine::CPYVAL, pColumn);
+  }
+}
+
+void MQLSelect::GenWhereCheck(uint16 fail_address)
 {
 
 }
@@ -215,10 +270,9 @@ void MQLSelect::GenTableLoop()
  */
 void MQLSelect::GenerateBytecode()
 {
-  mdbTableMapIterator iter = tables.begin();
-  uint16 jmp, fail;
-  uint8 c;
-  uint16 pTable, pColumn;
+  uint8 level;
+  set<uint8>::iterator iter;
+
   bool asterisk = false;
 
   // Phase 1 - load the tables
@@ -231,51 +285,83 @@ void MQLSelect::GenerateBytecode()
   GenDefineResults(asterisk);
   // ------------------------------------------------------------------
 
-  // Phase 3 - The record retrieval loop (: Yes! It's a loop :)
+  // Phase 3 - The record retrieval loops (: Yes! It's a loop :)
   // ------------------------------------------------------------------
-  // saves the current code pointer
-  jmp = VM->getCodePointer();
-
-  // NEXT RECORD
-  VM->AddInstruction(mdbVirtualMachine::NXTREC, iter->second->tp);
-
-  // NO OPERATION (place-holder for JUMP ON FAILURE)
-  fail = VM->getCodePointer();
-  VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
-
-  // if '*' as column name was specified
-  if (asterisk)
+  if (joins.size() > 0)
   {
-    // COPY RECORD of tables[DATA] to the result store
-    VM->AddInstruction(mdbVirtualMachine::CPYREC, iter->second->tp);
-    // JUMP to instruction
-    VM->AddInstruction(mdbVirtualMachine::JMP, jmp);
-    // rewrites the NOP operation from above to be a
-    // jump to the current instruction
-    VM->RewriteInstruction(fail, mdbVirtualMachine::JMPF, VM->getCodePointer());
+    // generate the loop starts
+    iter = joins.begin();
+    for (level = 0; level < joins.size(); iter++, level++)
+    {
+      if (level > 0)
+      {
+        VM->AddInstruction(mdbVirtualMachine::RSTTBL, *iter);
+        // NEXT RECORD
+      }
+
+      loop_start[level] = VM->getCodePointer();
+
+      // NEXT RECORD
+      VM->AddInstruction(mdbVirtualMachine::NXTREC, *iter);
+      // NO OPERATION (place-holder for JUMP ON FAILURE)
+      VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
+    }
+
+    // TODO check WHERE
+
+    GenCopyResult(false);
+
+    // generate the loop ends
+    level = joins.size();
+    while (level--)
+    {
+      // JUMP to start of loop
+      VM->AddInstruction(mdbVirtualMachine::JMP, loop_start[level]);
+
+      // rewrites the NOP operation from above to be a
+      // jump to the current instruction
+      VM->RewriteInstruction(loop_start[level] + 1,
+          mdbVirtualMachine::JMPF, VM->getCodePointer());
+
+      // ensures that the last result record is copied to the result table
+      if (level == 0)
+      {
+        // NEW RESULT RECORD
+        VM->AddInstruction(mdbVirtualMachine::NEWREC,
+            mdbVirtualMachine::MVI_SUCCESS);
+        break;
+      }
+    }
   }
-  // otherwise, the source data needs to by copied column by column
   else
   {
-    // NEW RESULT RECORD
-    VM->AddInstruction(mdbVirtualMachine::NEWREC, mdbVirtualMachine::MVI_SUCCESS);
-    // copies source data of current table, column by column
-    for (c = 0; c < destColumns.size(); c++)
-    {
-      // retrieve the table and column name pointers
-      pTable = tables[destColumns[c].first]->tp;
-      pColumn = tables[destColumns[c].first]->columns[destColumns[c].second];
-      // COPY VALUE of column memory[DATA] (to current result columns)
-      VM->AddInstruction(mdbVirtualMachine::CPYVAL, pColumn);
-    }
-    // JUMP to instruction
-    VM->AddInstruction(mdbVirtualMachine::JMP, jmp);
+    // saves the loop start
+    loop_start[0] = VM->getCodePointer();
+    // NEXT RECORD
+    VM->AddInstruction(mdbVirtualMachine::NXTREC, tables.begin()->second->tp);
+    // NO OPERATION (place-holder for JUMP ON FAILURE)
+    VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
+
+    // TODO if WHERE specified, check conditions
+
+    // copy results
+    GenCopyResult(asterisk);
+
+    // JUMP to start of loop
+    VM->AddInstruction(mdbVirtualMachine::JMP, loop_start[0]);
+
     // rewrites the NOP operation from above to be a
     // jump to the current instruction
-    VM->RewriteInstruction(fail, mdbVirtualMachine::JMPF, VM->getCodePointer());
-    // NEW RESULT RECORD (this is needed to ensure that the last
-    // result record is added to the result records store)
-    VM->AddInstruction(mdbVirtualMachine::NEWREC, mdbVirtualMachine::MVI_SUCCESS);
+    VM->RewriteInstruction(loop_start[0] + 1,
+        mdbVirtualMachine::JMPF, VM->getCodePointer());
+
+    if (!asterisk)
+    {
+      // NEW RESULT RECORD (ensures that the last result record
+      //                    is copied to the result table)
+      VM->AddInstruction(mdbVirtualMachine::NEWREC,
+          mdbVirtualMachine::MVI_SUCCESS);
+    }
   }
   // ------------------------------------------------------------------
 

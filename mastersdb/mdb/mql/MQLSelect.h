@@ -28,12 +28,16 @@
  *  GenSingleTableSelect() re-factoring.
  * 04.09.2010
  *  Added mdbCondition structure.
+ * 08.09.2010
+ *  Added support for processing cross table joins.
  */
 
 #ifndef MQLSELECT_H_
 #define MQLSELECT_H_
 
 #include "../mvm/mdbVirtualMachine.h"
+
+#include <set>
 
 using namespace std;
 
@@ -87,10 +91,15 @@ private:
   mdbVirtualMachine *VM;
   uint16 dptr;
   mdbOperation *where;
+  set<uint8> joins;
+
+  uint16 loop_start[mdbVirtualMachine::MDB_VM_TABLES_SIZE];
 
   void GenLoadTables();
   void GenDefineResults(bool &asterisk);
-  void GenTableLoop();
+  void GenTableLoop(uint16 tp);
+  void GenCopyResult(bool asterisk);
+  void GenWhereCheck(uint16 fail_address);
 
 public:
   MQLSelect();
@@ -119,6 +128,11 @@ public:
   void setVM(mdbVirtualMachine *vm)
   {
     VM = vm;
+  }
+
+  void addJoin(uint8 table)
+  {
+    joins.insert(table);
   }
 
   virtual ~MQLSelect();

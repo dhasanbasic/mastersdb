@@ -22,6 +22,8 @@
  * ----------------
  * 21.08.2010
  *  Initial version of file.
+ * 09.09.2010
+ *  Implemented GetColumnCount, GetColumnName, GetColumnType methods.
  */
 
 #include "MastersDB.h"
@@ -94,6 +96,31 @@ bool MdbResultSet::ToLast()
     return true;
   }
   return false;
+}
+
+uint8_t MdbResultSet::GetColumnCount()
+{
+  return ((mdbQueryResults*)rs)->getColumnCount();
+}
+
+std::string MdbResultSet::GetColumnName(uint8_t column)
+{
+  char *name;
+  name = ((mdbQueryResults*)rs)->getColumn(column)->name;
+  return std::string(name + 4, *((uint32*)name));
+}
+
+MdbDatatypes MdbResultSet::GetColumnType(uint8_t column)
+{
+  return (MdbDatatypes)((mdbQueryResults*)rs)->getColumn(column)->type;
+}
+
+MdbDatatypes MdbResultSet::GetColumnType(std::string column)
+{
+  char name[column.length() + 4];
+  *((uint32*)name) = column.length();
+  column.copy(name + 4, column.length());
+  return (MdbDatatypes)((mdbQueryResults*)rs)->getColumn(name)->type;
 }
 
 int32_t MdbResultSet::GetIntValue(uint8_t column)

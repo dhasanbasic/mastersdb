@@ -467,6 +467,12 @@ MQLCondition =
   )
 
 (.
+  // determine if a table join is needed
+  if ((op->left ^ op->right) & 0x3C00)
+  {
+    select->addJoin((op->left & 0x3C00)>>10);
+    select->addJoin((op->right & 0x3C00)>>10);
+  }
   select->setOperation(op);
 .) .
 

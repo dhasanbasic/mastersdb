@@ -141,9 +141,11 @@ void mdbVirtualMachine::Decode()
     case LDTBL:   LoadTable(); break;
     case SETTBL:  SetTable(); break;
     case DSCTBL:  DescribeTable(); break;
+    case RSTTBL:  ResetTable(); break;
     // Column operations
     case NEWCOL:  NewColumn(); break;
     case CPYCOL:  CopyColumn(); break;
+    case CMP:     Compare(); break;
     // Source record operations
     case INSVAL:  InsertValue(); break;
     case INSREC:  InsertRecord(); break;
