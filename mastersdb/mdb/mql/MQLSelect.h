@@ -99,7 +99,7 @@ private:
   void GenDefineResults(bool &asterisk);
   void GenTableLoop(uint16 tp);
   void GenCopyResult(bool asterisk);
-  void GenWhereCheck(uint16 fail_address);
+  void GenConditionCheck(uint16 fail_address);
 
 public:
   MQLSelect();

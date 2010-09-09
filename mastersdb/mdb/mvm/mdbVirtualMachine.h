@@ -29,7 +29,7 @@
  *  Added the INSVAL and INSREC instructions.
  * 15.08.2010
  *  mdbQueryResult re-factoring.
- *  Added the PUSHOF, NEWCOL, NEWREC instructions.
+ *  Added the NEWCOL, NEWREC instructions.
  *  Added the DSCTBL instruction.
  * 16.08.2010
  *  Added the getCodePointer method.
@@ -97,7 +97,9 @@ enum mdbOperationType
   MDB_EQUAL,
   MDB_GREATER_OR_EQUAL,
   MDB_LESS_OR_EQUAL,
-  MDB_NOT_EQUAL
+  MDB_NOT_EQUAL,
+  MDB_AND,
+  MDB_OR
 };
 
 class mdbVirtualMachine
@@ -255,8 +257,8 @@ private:
   void NewRecord();
 
   // VM operations
-public:  void Reset();
-private:  void Decode();
+  void Reset();
+  void Decode();
 
   void Jump()
   {
@@ -386,7 +388,7 @@ public:
       case CPYCOL:  s.append("CPYCOL\t"); break;
       case CMP:
         s.append("CMP\t");
-        switch ((mdbOperationType)data) {
+        switch ((mdbOperationType)_data) {
           case MDB_LESS:              s.append("' <':"); break;
           case MDB_GREATER:           s.append("' >':"); break;
           case MDB_EQUAL:             s.append("' =':"); break;

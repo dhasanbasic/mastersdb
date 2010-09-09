@@ -112,7 +112,7 @@ void setSelect (MQLSelect *select)
 	void MQLTables();
 	void MQLConditions();
 	void MQLColumn(bool destination, mdbTableInfo* &ti);
-	void MQLCondition();
+	void MQLCondition(mdbOperation *op);
 	void MQLConditionType(mdbOperation *op);
 
 	void Parse(const unsigned char* buf, int len);

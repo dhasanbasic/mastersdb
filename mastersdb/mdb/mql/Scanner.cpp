@@ -212,8 +212,8 @@ Scanner::~Scanner() {
 void Scanner::Init() {
 	EOL    = '\n';
 	eofSym = 0;
-	maxT = 31;
-	noSym = 31;
+	maxT = 33;
+	noSym = 33;
 	int i;
 	for (i = 48; i <= 57; ++i) start.set(i, 1);
 	for (i = 97; i <= 104; ++i) start.set(i, 9);
@@ -253,6 +253,8 @@ void Scanner::Init() {
 	keywords.set(L"select", 21);
 	keywords.set(L"from", 22);
 	keywords.set(L"where", 23);
+	keywords.set(L"and", 25);
+	keywords.set(L"or", 26);
 
 
 	tvalLength = 128;
@@ -470,16 +472,16 @@ Token* Scanner::NextToken() {
 		case 19:
 			{t->kind = 24; break;}
 		case 20:
-			{t->kind = 27; break;}
+			{t->kind = 29; break;}
 		case 21:
 			case_21:
-			{t->kind = 28; break;}
+			{t->kind = 30; break;}
 		case 22:
 			case_22:
-			{t->kind = 29; break;}
+			{t->kind = 31; break;}
 		case 23:
 			case_23:
-			{t->kind = 30; break;}
+			{t->kind = 32; break;}
 		case 24:
 			if ((ch >= L'a' && ch <= L'm') || (ch >= L'o' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_9;}
 			else if (ch == L'.') {AddCh(); goto case_2;}
@@ -488,10 +490,10 @@ Token* Scanner::NextToken() {
 		case 25:
 			if (ch == L'=') {AddCh(); goto case_22;}
 			else if (ch == L'>') {AddCh(); goto case_23;}
-			else {t->kind = 25; break;}
+			else {t->kind = 27; break;}
 		case 26:
 			if (ch == L'=') {AddCh(); goto case_21;}
-			else {t->kind = 26; break;}
+			else {t->kind = 28; break;}
 		case 27:
 			case_27:
 			if ((ch >= L'a' && ch <= L's') || (ch >= L'u' && ch <= L'z') || ch == 196 || ch == 214 || ch == 220 || ch == 228 || ch == 246 || ch == 252 || (ch >= 262 && ch <= 263) || (ch >= 268 && ch <= 269) || (ch >= 272 && ch <= 273) || (ch >= 352 && ch <= 353) || (ch >= 381 && ch <= 382)) {AddCh(); goto case_9;}

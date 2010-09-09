@@ -34,6 +34,8 @@
  * 16.08.2010
  *  Added rules for SELECT.
  *  Added support for multi-column select.
+ * 08.09.2010
+ *  Added support for WHERE
  */
 
 extern "C" {
@@ -275,7 +277,18 @@ MQLInsertStatement =
  * MQLValues
  */
 
-MQLValues = MQLValue { ',' MQLValue } .
+MQLValues =
+
+  MQLValue
+(.
+  VM->AddInstruction(mdbVirtualMachine::INSVAL, dp++);
+.)
+
+  { ',' MQLValue
+(.
+  VM->AddInstruction(mdbVirtualMachine::INSVAL, dp++);
+.)
+  } .
 
 /*
  * MQLValue
@@ -307,8 +320,7 @@ MQLValue =
   )
 
 (.
-  VM->AddInstruction(mdbVirtualMachine::INSVAL, dp);
-  VM->StoreData(data, dp++);
+  VM->StoreData(data, dp);
   delete s; 
 .) .
 
@@ -432,16 +444,53 @@ MQLTables =
 /*
  * MQLConditions
  */
-MQLConditions = MQLCondition . /* { ("AND" | "OR") MQLCondition } . */
+MQLConditions =
+
+(.
+  mdbOperation *tmp;
+  mdbOperation *op = new mdbOperation;
+  memset(op, 0, sizeof(mdbOperation));
+.)
+
+  MQLCondition<op> {
+  
+  ("AND"
+
+(.
+  tmp = op;
+  op = new mdbOperation;
+  op->type = MDB_AND;  
+  op->left_child = tmp;
+  tmp = new mdbOperation;
+  memset(tmp, 0, sizeof(mdbOperation));
+.)
+
+  | "OR"
+
+(.
+  tmp = op;
+  op = new mdbOperation;
+  op->type = MDB_OR;  
+  op->left_child = tmp;
+  tmp = new mdbOperation;
+  memset(tmp, 0, sizeof(mdbOperation));
+.)
+  
+  ) MQLCondition<tmp>
+
+  (. op->right_child = tmp; .)
+  
+  }
+  
+(. select->setOperation(op); .) .
 
 /*
  * MQLCondition
  */
-MQLCondition =
+MQLCondition<mdbOperation *op> =
 
 (.
   mdbTableInfo *ti;
-  mdbOperation *op = new mdbOperation;
   op->right = 0;
 .)
 
@@ -461,9 +510,12 @@ MQLCondition =
   op->right = ti->cdp;
   op->right |= ti->tp<<10;
 .)
+    | MQLValue
+(.
+  op->right = dp++;
+  op->right |= 0x4000;
+.)
 
-    |
-    MQLValue              (. op->right |= 0x4000; .)
   )
 
 (.
@@ -473,7 +525,6 @@ MQLCondition =
     select->addJoin((op->left & 0x3C00)>>10);
     select->addJoin((op->right & 0x3C00)>>10);
   }
-  select->setOperation(op);
 .) .
 
 /*

@@ -70,7 +70,7 @@ void Parser::MQL() {
 			MQLDescribeStatement();
 		} else if (la->kind == 21) {
 			MQLSelectStatement();
-		} else SynErr(32);
+		} else SynErr(34);
 		Expect(5);
 		VM->AddInstruction(mdbVirtualMachine::HALT,
 		  mdbVirtualMachine::MVI_SUCCESS);
@@ -137,7 +137,7 @@ void Parser::MQLDescribeStatement() {
 			Get();
 		} else if (la->kind == 20) {
 			Get();
-		} else SynErr(33);
+		} else SynErr(35);
 		Expect(2);
 		VM->AddInstruction(mdbVirtualMachine::SETTBL, tp);
 		s = TokenToString();
@@ -237,14 +237,18 @@ void Parser::MQLDatatype(uint16* type_indexed, bool &has_length) {
 		} else if (la->kind == 15) {
 			Get();
 			(*type_indexed) &= 0x0401; has_length = true; 
-		} else SynErr(34);
+		} else SynErr(36);
 }
 
 void Parser::MQLValues() {
 		MQLValue();
+		VM->AddInstruction(mdbVirtualMachine::INSVAL, dp++);
+		
 		while (la->kind == 10) {
 			Get();
 			MQLValue();
+			VM->AddInstruction(mdbVirtualMachine::INSVAL, dp++);
+			
 		}
 }
 
@@ -265,9 +269,8 @@ void Parser::MQLValue() {
 			*((uint32*)data) = s->length() - 2;
 			strncpy(data + 4, s->c_str() + 1, s->length() - 2);
 			
-		} else SynErr(35);
-		VM->AddInstruction(mdbVirtualMachine::INSVAL, dp);
-		VM->StoreData(data, dp++);
+		} else SynErr(37);
+		VM->StoreData(data, dp);
 		delete s; 
 		
 }
@@ -289,7 +292,7 @@ void Parser::MQLColumns() {
 				Get();
 				MQLColumn(true, ti);
 			}
-		} else SynErr(36);
+		} else SynErr(38);
 }
 
 void Parser::MQLTables() {
@@ -306,7 +309,35 @@ void Parser::MQLTables() {
 }
 
 void Parser::MQLConditions() {
-		MQLCondition();
+		mdbOperation *tmp;
+		mdbOperation *op = new mdbOperation;
+		memset(op, 0, sizeof(mdbOperation));
+		
+		MQLCondition(op);
+		while (la->kind == 25 || la->kind == 26) {
+			if (la->kind == 25) {
+				Get();
+				tmp = op;
+				op = new mdbOperation;
+				op->type = MDB_AND;  
+				op->left_child = tmp;
+				tmp = new mdbOperation;
+				memset(tmp, 0, sizeof(mdbOperation));
+				
+			} else {
+				Get();
+				tmp = op;
+				op = new mdbOperation;
+				op->type = MDB_OR;  
+				op->left_child = tmp;
+				tmp = new mdbOperation;
+				memset(tmp, 0, sizeof(mdbOperation));
+				
+			}
+			MQLCondition(tmp);
+			op->right_child = tmp; 
+		}
+		select->setOperation(op); 
 }
 
 void Parser::MQLColumn(bool destination, mdbTableInfo* &ti) {
@@ -325,7 +356,7 @@ void Parser::MQLColumn(bool destination, mdbTableInfo* &ti) {
 		} else if (la->kind == 2) {
 			Get();
 			column = TokenToString(); 
-		} else SynErr(37);
+		} else SynErr(39);
 		select->MapColumn(column, table, dp, ti, destination);
 		delete table;
 		delete column;
@@ -333,9 +364,8 @@ void Parser::MQLColumn(bool destination, mdbTableInfo* &ti) {
 		
 }
 
-void Parser::MQLCondition() {
+void Parser::MQLCondition(mdbOperation *op) {
 		mdbTableInfo *ti;
-		mdbOperation *op = new mdbOperation;
 		op->right = 0;
 		
 		MQLColumn(false, ti);
@@ -350,50 +380,51 @@ void Parser::MQLCondition() {
 			
 		} else if (la->kind == 1 || la->kind == 4) {
 			MQLValue();
-			op->right |= 0x4000; 
-		} else SynErr(38);
+			op->right = dp++;
+			op->right |= 0x4000;
+			
+		} else SynErr(40);
 		if ((op->left ^ op->right) & 0x3C00)
 		{
 		  select->addJoin((op->left & 0x3C00)>>10);
 		  select->addJoin((op->right & 0x3C00)>>10);
 		}
-		select->setOperation(op);
 		
 }
 
 void Parser::MQLConditionType(mdbOperation *op) {
 		switch (la->kind) {
-		case 25: {
+		case 27: {
 			Get();
 			op->type = MDB_LESS; 
 			break;
 		}
-		case 26: {
+		case 28: {
 			Get();
 			op->type = MDB_GREATER; 
 			break;
 		}
-		case 27: {
+		case 29: {
 			Get();
 			op->type = MDB_EQUAL; 
 			break;
 		}
-		case 28: {
+		case 30: {
 			Get();
 			op->type = MDB_GREATER_OR_EQUAL; 
 			break;
 		}
-		case 29: {
+		case 31: {
 			Get();
 			op->type = MDB_LESS_OR_EQUAL; 
 			break;
 		}
-		case 30: {
+		case 32: {
 			Get();
 			op->type = MDB_NOT_EQUAL; 
 			break;
 		}
-		default: SynErr(39); break;
+		default: SynErr(41); break;
 		}
 }
 
@@ -415,7 +446,7 @@ void Parser::Parse(const unsigned char* buf, int len) {
 }
 
 Parser::Parser() {
-	maxT = 31;
+	maxT = 33;
 
 	la = dummyToken = new Token();
 	la->val = coco_string_create(L"Dummy Token");
@@ -427,8 +458,8 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[1][33] = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x}
+	static bool set[1][35] = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x}
 	};
 
 
@@ -474,21 +505,23 @@ void Errors::SynErr(int line, int col, int n) {
 			case 22: s = coco_string_create(L"\"from\" expected"); break;
 			case 23: s = coco_string_create(L"\"where\" expected"); break;
 			case 24: s = coco_string_create(L"\"*\" expected"); break;
-			case 25: s = coco_string_create(L"\"<\" expected"); break;
-			case 26: s = coco_string_create(L"\">\" expected"); break;
-			case 27: s = coco_string_create(L"\"=\" expected"); break;
-			case 28: s = coco_string_create(L"\">=\" expected"); break;
-			case 29: s = coco_string_create(L"\"<=\" expected"); break;
-			case 30: s = coco_string_create(L"\"<>\" expected"); break;
-			case 31: s = coco_string_create(L"??? expected"); break;
-			case 32: s = coco_string_create(L"invalid MQL"); break;
-			case 33: s = coco_string_create(L"invalid MQLDescribeStatement"); break;
-			case 34: s = coco_string_create(L"invalid MQLDatatype"); break;
-			case 35: s = coco_string_create(L"invalid MQLValue"); break;
-			case 36: s = coco_string_create(L"invalid MQLColumns"); break;
-			case 37: s = coco_string_create(L"invalid MQLColumn"); break;
-			case 38: s = coco_string_create(L"invalid MQLCondition"); break;
-			case 39: s = coco_string_create(L"invalid MQLConditionType"); break;
+			case 25: s = coco_string_create(L"\"and\" expected"); break;
+			case 26: s = coco_string_create(L"\"or\" expected"); break;
+			case 27: s = coco_string_create(L"\"<\" expected"); break;
+			case 28: s = coco_string_create(L"\">\" expected"); break;
+			case 29: s = coco_string_create(L"\"=\" expected"); break;
+			case 30: s = coco_string_create(L"\">=\" expected"); break;
+			case 31: s = coco_string_create(L"\"<=\" expected"); break;
+			case 32: s = coco_string_create(L"\"<>\" expected"); break;
+			case 33: s = coco_string_create(L"??? expected"); break;
+			case 34: s = coco_string_create(L"invalid MQL"); break;
+			case 35: s = coco_string_create(L"invalid MQLDescribeStatement"); break;
+			case 36: s = coco_string_create(L"invalid MQLDatatype"); break;
+			case 37: s = coco_string_create(L"invalid MQLValue"); break;
+			case 38: s = coco_string_create(L"invalid MQLColumns"); break;
+			case 39: s = coco_string_create(L"invalid MQLColumn"); break;
+			case 40: s = coco_string_create(L"invalid MQLCondition"); break;
+			case 41: s = coco_string_create(L"invalid MQLConditionType"); break;
 
 		default:
 		{

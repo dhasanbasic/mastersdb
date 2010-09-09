@@ -96,10 +96,14 @@ int main(int argc, char **argv)
 //  printResults(rs);
 //  delete rs;
 
+//  rs = db->ExecuteMQL("SELECT * FROM Zaposleni WHERE Ime > 'C';");
+//  printResults(rs);
+//  delete rs;
+
   rs = db->ExecuteMQL(
   "SELECT Zaposleni.Ime, Zaposleni.Prezime, Odjeli.Naziv"
   " FROM Zaposleni, Odjeli"
-  " WHERE Zaposleni.Odjel = Odjeli.ID;");
+  " WHERE Zaposleni.Odjel = Odjeli.ID OR Zaposleni.Odjel = 3 AND Zaposleni.Ime <= 'Dinko';");
   printResults(rs);
   delete rs;
 

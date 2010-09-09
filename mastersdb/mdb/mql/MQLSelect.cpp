@@ -53,7 +53,7 @@ void MQLSelect::MapColumn(
     mdbTableInfo* &ti,
     bool destination)
 {
-  string cTable = (table == NULL) ? MDB_DEFAULT : (*table);
+  string cTable;
   string cColumn = *column;
 
   char *name;
@@ -61,6 +61,22 @@ void MQLSelect::MapColumn(
   mdbTableInfo *l_ti;
   mdbTableMapIterator t;
   mdbColumnMapResult c;
+
+  if (table == NULL)
+  {
+    if (tables.size() > 0)
+    {
+      cTable = tables.begin()->first;
+    }
+    else
+    {
+      cTable = MDB_DEFAULT;
+    }
+  }
+  else
+  {
+    cTable = *table;
+  }
 
   // if the table name is encountered for the first time
   if ((t = tables.find(cTable)) == tables.end())
@@ -259,9 +275,26 @@ void MQLSelect::GenCopyResult(bool asterisk)
   }
 }
 
-void MQLSelect::GenWhereCheck(uint16 fail_address)
+void MQLSelect::GenConditionCheck(uint16 fail_address)
 {
+  mdbOperation *op;
 
+  if (where == NULL) return;
+
+  op = where;
+
+  VM->AddInstruction(mdbVirtualMachine::PUSH,
+      (uint16)(op->right & 0x03FF));
+  VM->AddInstruction(mdbVirtualMachine::PUSH,
+      (uint16)((op->right & 0x7C00)>>10));
+  VM->AddInstruction(mdbVirtualMachine::PUSH,
+      (uint16)(op->left & 0x03FF));
+  VM->AddInstruction(mdbVirtualMachine::PUSH,
+      (uint16)((op->left & 0x7C00)>>10));
+
+  VM->AddInstruction(mdbVirtualMachine::CMP, (uint16)op->type);
+
+  VM->AddInstruction(mdbVirtualMachine::JMPF, fail_address);
 }
 
 /*
@@ -307,7 +340,8 @@ void MQLSelect::GenerateBytecode()
       VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
     }
 
-    // TODO check WHERE
+    // check WHERE conditions
+    GenConditionCheck(loop_start[level-1]);
 
     GenCopyResult(false);
 
@@ -342,7 +376,8 @@ void MQLSelect::GenerateBytecode()
     // NO OPERATION (place-holder for JUMP ON FAILURE)
     VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
 
-    // TODO if WHERE specified, check conditions
+    // if WHERE specified, check conditions
+    GenConditionCheck(loop_start[0]);
 
     // copy results
     GenCopyResult(asterisk);
