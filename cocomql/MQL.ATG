@@ -491,14 +491,18 @@ MQLCondition<mdbOperation *op> =
 
 (.
   mdbTableInfo *ti;
-  op->right = 0;
+  uint8 tbl_left, tbl_right;
+  uint16 col_left, col_right;
+  uint32 param;
+  uint32 *data;
+  bool right_is_direct = false;
 .)
 
   MQLColumn<false, ti>
 
 (.
-  op->left = ti->cdp;
-  op->left |= ti->tp<<10;
+  tbl_left = ti->tp;
+  col_left = ti->cdp;
 .)
 
   MQLConditionType<op>
@@ -507,24 +511,40 @@ MQLCondition<mdbOperation *op> =
     MQLColumn<false, ti>
 
 (.
-  op->right = ti->cdp;
-  op->right |= ti->tp<<10;
+  tbl_right = ti->tp;
+  col_right = ti->cdp;
 .)
     | MQLValue
 (.
-  op->right = dp++;
-  op->right |= 0x4000;
+  tbl_right = 0;
+  col_right = dp++;
+  right_is_direct = true;
 .)
 
   )
 
 (.
-  // determine if a table join is needed
-  if ((op->left ^ op->right) & 0x3C00)
+  // determines if a table join is needed (different tables)
+  if (!right_is_direct && (tbl_left ^ tbl_right))
   {
-    select->addJoin((op->left & 0x3C00)>>10);
-    select->addJoin((op->right & 0x3C00)>>10);
+    select->addJoin(tbl_left);
+    select->addJoin(tbl_right);
   }
+  
+	// encodes the CMP instruction parameter and stores it)
+  param = (right_is_direct) ? 0x00000008 : 0;
+  param |= (uint8)op->type;
+  param = (param << 4) | tbl_left;
+  param = (param << 4) | tbl_right;
+  param = (param << 10) | col_left;
+  param = (param << 10) | col_right;
+  
+  data = (uint32*)malloc(sizeof(uint32));
+  *data = param;
+  
+  VM->StoreData((char*)data, dp);
+  op->param = param;
+  op->param_addr = dp++;  
 .) .
 
 /*

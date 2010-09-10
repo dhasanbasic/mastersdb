@@ -283,16 +283,7 @@ void MQLSelect::GenConditionCheck(uint16 fail_address)
 
   op = where;
 
-  VM->AddInstruction(mdbVirtualMachine::PUSH,
-      (uint16)(op->right & 0x03FF));
-  VM->AddInstruction(mdbVirtualMachine::PUSH,
-      (uint16)((op->right & 0x7C00)>>10));
-  VM->AddInstruction(mdbVirtualMachine::PUSH,
-      (uint16)(op->left & 0x03FF));
-  VM->AddInstruction(mdbVirtualMachine::PUSH,
-      (uint16)((op->left & 0x7C00)>>10));
-
-  VM->AddInstruction(mdbVirtualMachine::CMP, (uint16)op->type);
+  VM->AddInstruction(mdbVirtualMachine::CMP, op->param_addr);
 
   VM->AddInstruction(mdbVirtualMachine::JMPF, fail_address);
 }

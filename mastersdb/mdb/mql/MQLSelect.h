@@ -49,19 +49,22 @@ struct mdbOperation
   mdbOperation *left_child;         // left child
   mdbOperation *right_child;        // right child
   mdbOperationType type;            // type of comparison operation
-  uint16 left;                      // left operand specification
-  uint16 right;                     // right operand specification
+  uint32 param;                     // parameter (see below)
+  uint16 param_addr;                // virtual machine memory address
+                                    // where "param" has been stored
 
-  /* operand specification
+  /* parameter value specification
    * ---------------------------
-   *  0(X)[XX XX]{XX XXXX XXXX}
+   *  VTTT AAAA BBBB XXXX XXXX XXZZ ZZ ZZZZ
    * ---------------------------
-   * (X) = 0 : the operand is a column
-   *       1 : the operand is an explicit value
-   *
-   * [XXXX] = index of virtual table
-   *
-   * {XX XXXX XXXX} = virtual machine memory address of column or direct value
+   *  V : 0 - right operand is a column value
+   *      1 - right operand is a direct value
+   *  T : operation type (mdbOperationType)
+   *  A : left operand virtual table index
+   *  B : right operand virtual table index (if column value)
+   *  X : left operand virtual machine memory address (column name)
+   *  Y : right operand virtual machine memory address (column name
+   *      (or direct value)
    */
 };
 

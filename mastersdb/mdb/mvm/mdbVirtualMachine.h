@@ -326,7 +326,7 @@ public:
     string ret;
     uint16 i;
     uint32 len;
-    char buf[64];
+    char buf[32];
 
     ret.append("--------------------------------------\n");
 
@@ -342,13 +342,13 @@ public:
     {
       if (memory[i] != NULL)
       {
-        memset(buf, 0, 64);
+        memset(buf, 0, 32);
         len = *((uint32*)memory[i]);
         sprintf(buf, "%u\t%u ", i, len);
         ret.append(buf);
-        if (len > 0 && len < 64)
+        if (len > 0 && len < 32)
         {
-          memset(buf, 0, 64);
+          memset(buf, 0, 32);
           strncpy(buf, memory[i] + 4, len);
           ret.append(buf, len);
         }
@@ -365,6 +365,7 @@ public:
   {
     uint8 _opcode = MVI_OPCODE(bytecode[instr]);
     uint16 _data = MVI_DATA(bytecode[instr]);
+    uint32 cmp;
     char _cdata[10];
     int c;
 
@@ -388,7 +389,10 @@ public:
       case CPYCOL:  s.append("CPYCOL\t"); break;
       case CMP:
         s.append("CMP\t");
-        switch ((mdbOperationType)_data) {
+        cmp = *((uint32*)memory[_data]);
+        cmp = (cmp & 0x70000000)>>28;
+        switch ((mdbOperationType)cmp)
+        {
           case MDB_LESS:              s.append("' <':"); break;
           case MDB_GREATER:           s.append("' >':"); break;
           case MDB_EQUAL:             s.append("' =':"); break;

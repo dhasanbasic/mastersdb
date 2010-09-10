@@ -309,19 +309,22 @@ void mdbVirtualMachine::Compare()
   int cmpval;
   uint16 result;
 
-  uint16 left_meta = _pop();
-  uint16 left_addr = _pop();
-  uint16 right_meta = _pop();
-  uint16 right_addr = _pop();
+  uint32 param = *((uint32*)memory[data]);
 
-  // initializes the left operand
+  uint16 col_right = param & 0x03FF;
+  uint16 col_left  = (param >>= 10) & 0x03FF;
+  uint8 tbl_right = (param >>= 10) & 0x0F;
+  uint8 tbl_left = (param >>= 4) & 0x0F;
+  mdbOperationType op = (mdbOperationType)((param >>= 4) & 0x07);
+
+  // determine the value of the left operand
   type = db->datatypes +
-      (tables[left_meta & 0x000F]->getColumn(memory[left_addr]))->type;
-  left_val = tables[left_meta & 0x000F]->getValue(memory[left_addr]);
+      (tables[tbl_left]->getColumn(memory[col_left]))->type;
+  left_val = tables[tbl_left]->getValue(memory[col_left]);
 
-  // initializes the right operand based on its type
-  right_val = (right_meta & 0x0010) ? memory[right_addr] :
-      tables[right_meta & 0x000F]->getValue(memory[right_addr]);
+  // determine the value of the right operand
+  right_val = (param & 1) ? memory[col_right] :
+      tables[tbl_right]->getValue(memory[col_right]);
 
   // compares the two values based on their type
   if (type->header > 0)
@@ -340,11 +343,10 @@ void mdbVirtualMachine::Compare()
   }
   cmpval = type->compare(left_val, right_val, size);
 
-
-  // determines the comparison result base
   result = MVI_FAILURE;
 
-  switch ((mdbOperationType)data)
+  // determines the comparison result
+  switch (op)
   {
     case MDB_LESS:
       if (cmpval < 0) result = MVI_SUCCESS;
