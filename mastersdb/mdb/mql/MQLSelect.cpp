@@ -277,15 +277,41 @@ void MQLSelect::GenCopyResult(bool asterisk)
 
 void MQLSelect::GenConditionCheck(uint16 fail_address)
 {
-  mdbOperation *op;
-
   if (where == NULL) return;
 
-  op = where;
-
-  VM->AddInstruction(mdbVirtualMachine::CMP, op->param_addr);
+  while(where != NULL)
+  {
+    GenConditionCheckRecursive(where);
+    where = NULL;
+  }
 
   VM->AddInstruction(mdbVirtualMachine::JMPF, fail_address);
+}
+
+void MQLSelect::GenConditionCheckRecursive(mdbOperation *op)
+{
+
+  if (op->left_child != NULL)
+  {
+    GenConditionCheckRecursive(op->left_child);
+  }
+
+  if (op->right_child != NULL)
+  {
+    GenConditionCheckRecursive(op->right_child);
+  }
+
+  if (op->type < MDB_AND)
+  {
+    VM->AddInstruction(mdbVirtualMachine::CMP, op->param_addr);
+  }
+  else
+  {
+    VM->AddInstruction(mdbVirtualMachine::BOOL, op->type);
+  }
+
+  delete op;
+
 }
 
 /*
@@ -328,7 +354,8 @@ void MQLSelect::GenerateBytecode()
       // NEXT RECORD
       VM->AddInstruction(mdbVirtualMachine::NXTREC, *iter);
       // NO OPERATION (place-holder for JUMP ON FAILURE)
-      VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
+      VM->AddInstruction(mdbVirtualMachine::NOP,
+          mdbVirtualMachine::MVI_SUCCESS);
     }
 
     // check WHERE conditions
@@ -365,7 +392,8 @@ void MQLSelect::GenerateBytecode()
     // NEXT RECORD
     VM->AddInstruction(mdbVirtualMachine::NXTREC, tables.begin()->second->tp);
     // NO OPERATION (place-holder for JUMP ON FAILURE)
-    VM->AddInstruction(mdbVirtualMachine::NOP, mdbVirtualMachine::MVI_NOP);
+    VM->AddInstruction(mdbVirtualMachine::NOP,
+        mdbVirtualMachine::MVI_SUCCESS);
 
     // if WHERE specified, check conditions
     GenConditionCheck(loop_start[0]);

@@ -51,7 +51,8 @@
  *  Implemented a few SELECT .. WHERE specific instructions:
  *  - RSTTBL : ResetTable()
  *  - CMP    : Compare().
- *  Implemented
+ * 10.09.2010
+ *  Implemented: BOOL   : Boolean().
  */
 
 #include "mdbVirtualMachine.h"
@@ -146,6 +147,7 @@ void mdbVirtualMachine::Decode()
     case NEWCOL:  NewColumn(); break;
     case CPYCOL:  CopyColumn(); break;
     case CMP:     Compare(); break;
+    case BOOL:    Boolean(); break;
     // Source record operations
     case INSVAL:  InsertValue(); break;
     case INSREC:  InsertRecord(); break;
@@ -323,7 +325,7 @@ void mdbVirtualMachine::Compare()
   left_val = tables[tbl_left]->getValue(memory[col_left]);
 
   // determine the value of the right operand
-  right_val = (param & 1) ? memory[col_right] :
+  right_val = (param & 0x08) ? memory[col_right] :
       tables[tbl_right]->getValue(memory[col_right]);
 
   // compares the two values based on their type
@@ -371,6 +373,27 @@ void mdbVirtualMachine::Compare()
   }
 
   _push(result);
+}
+
+/*
+ * Takes the two parameters from stack and performs a Boolean
+ * logical operation (DATA) on them, pushing the result on stack
+ */
+void mdbVirtualMachine::Boolean()
+{
+  uint16 p1 = _pop();
+  uint16 p2 = _pop();
+
+  switch ((mdbOperationType)data) {
+    case MDB_AND:
+      _push(p1 & p2);
+      break;
+    case MDB_OR:
+      _push(p1 | p2);
+      break;
+    default:
+      break;
+  }
 }
 
 /*

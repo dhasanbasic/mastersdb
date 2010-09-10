@@ -182,7 +182,7 @@ bool mdbVirtualTable::NextRecord()
   // if this is the first call...
   if (traversal == NULL)
   {
-    traversal = new mdbBtreeTraversal;
+    traversal = (mdbBtreeTraversal*)malloc(sizeof(mdbBtreeTraversal));
     traversal->node = T->root;
     traversal->parent = NULL;
     traversal->position = 0;
@@ -199,6 +199,7 @@ void mdbVirtualTable::ResetRecords()
     while (traversal->parent != NULL)
     {
       mdbFreeNode(traversal->node, 0);
+      free(traversal);
       traversal = traversal->parent;
     }
     traversal->position = 0;
@@ -225,7 +226,7 @@ void mdbVirtualTable::Reset()
 
   ResetRecords();
 
-  delete traversal;
+  free(traversal);
   delete[] record;
 
   T = NULL;

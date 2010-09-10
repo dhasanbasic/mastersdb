@@ -48,6 +48,8 @@
  *  The results from executions are now returned by Execute().
  * 06.09.2010
  *  Added two new instructions: RSTTBL and CMP.
+ * 10.09.2010
+ *  Added new instruction: BOOL.
  */
 
 #ifndef MASTERSDBVM_H_
@@ -132,6 +134,7 @@ public:
     NEWCOL, // NEW COLUMN
     CPYCOL, // COPY COLUMN (to result columns)
     CMP,    // COMPARE COLUMNS (column to column or column to value)
+    BOOL,   // BOOLEAN OPERATION
     /*
      * Table record operations
      */
@@ -152,9 +155,8 @@ public:
   // MastersDB Virtual Machine instruction constants
   enum mdbMVIConstants
   {
-    MVI_NOP,
-    MVI_SUCCESS,
-    MVI_FAILURE,
+    MVI_FAILURE = 0,
+    MVI_SUCCESS = 1
   };
 
 private:
@@ -247,6 +249,7 @@ private:
   void NewColumn();
   void CopyColumn();
   void Compare();
+  void Boolean();
 
   // Source/Destination record operations
   void InsertValue();
@@ -270,7 +273,7 @@ private:
    */
   void JumpOnFailure()
   {
-    if (_pop() == MVI_FAILURE)
+    if (!_pop())
     {
       ip = data;
     }
@@ -403,6 +406,18 @@ public:
             break;
         }
         break;
+          case BOOL:
+            s.append("BOOL\t");
+            cmp = *((uint32*)memory[_data]);
+            cmp = (cmp & 0x70000000)>>28;
+            switch ((mdbOperationType)cmp)
+            {
+              case MDB_AND:           s.append("'AND' : "); break;
+              case MDB_OR:            s.append("'OR'  : "); break;
+              default:
+                break;
+            }
+            break;
       // Source record operations
       case INSVAL:  s.append("INSVAL\t"); break;
       case INSREC:  s.append("INSREC\t"); break;

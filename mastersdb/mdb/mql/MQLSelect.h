@@ -103,6 +103,7 @@ private:
   void GenTableLoop(uint16 tp);
   void GenCopyResult(bool asterisk);
   void GenConditionCheck(uint16 fail_address);
+  void GenConditionCheckRecursive(mdbOperation *op);
 
 public:
   MQLSelect();
