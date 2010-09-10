@@ -161,7 +161,7 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
 
     /* reads the header and checks the magic number and version */
     fseek(l_db->file, 0L, SEEK_SET);
-    fread(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
+    ret = fread(&l_db->meta, sizeof(mdbDatabaseMeta), 1, l_db->file);
     if (l_db->meta.magic_number != MDB_MAGIC_NUMBER ||
         l_db->meta.mdb_version != MDB_VERSION)
     {
@@ -173,7 +173,7 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
     /* allocates and loads the B-tree of each system table */
 
     /* ------- .TABLES ------- */
-    fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    ret = fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->file = l_db->file;
     T->meta.root_position = meta.root_position;
@@ -181,7 +181,7 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
     l_db->tables = T;
 
     /* ------ .COLUMNS ------- */
-    fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    ret = fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->file = l_db->file;
     T->meta.root_position = meta.root_position;
@@ -189,7 +189,7 @@ mdbError mdbOpenDatabase(mdbDatabase **db, const char *filename)
     l_db->columns = T;
 
     /* ------ .INDEXES ------- */
-    fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
+    ret = fread(&meta, sizeof(mdbBtreeMeta), 1, l_db->file);
     ret = mdbBtreeCreate(&T, meta.order, meta.record_size, meta.key_position);
     T->file = l_db->file;
     T->meta.root_position = meta.root_position;

@@ -206,7 +206,7 @@ mdbError mdbLoadTable(
 
     /* load the table B-tree descriptor */
     fseek(db->file, tbl.btree, SEEK_SET);
-    fread(&meta, sizeof(mdbBtreeMeta), 1, db->file);
+    ret = fread(&meta, sizeof(mdbBtreeMeta), 1, db->file);
     ret = mdbBtreeCreate(&T,meta.order,meta.record_size,meta.key_position);
 
     /* initialize the mdbBtree structure */

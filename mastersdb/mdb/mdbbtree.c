@@ -59,10 +59,11 @@
 mdbBtreeNode* mdbReadNode(const uint32 position, mdbBtree* tree)
 {
   mdbBtreeNode *node;
+  int ret;
   mdbAllocateNode(&node, tree);
   node->position = position;
   fseek(tree->file, position, SEEK_SET);
-  fread(node->data, tree->nodeSize, 1, tree->file);
+  ret = fread(node->data, tree->nodeSize, 1, tree->file);
   return node;
 }
 
