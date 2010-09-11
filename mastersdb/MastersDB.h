@@ -68,6 +68,7 @@ public:
   static MdbDatabase* CreateDatabase(std::string filename);
   static MdbDatabase* OpenDatabase(std::string filename);
   MdbResultSet* ExecuteMQL(std::string statement);
+  std::string ExplainMQL(std::string statement);
   void Close();
 };
 

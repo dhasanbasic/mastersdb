@@ -98,11 +98,6 @@ MdbResultSet* MdbDatabase::ExecuteMQL(string statement)
   if (vm != NULL)
   {
     p->Parse((uint8_t*) statement.c_str(), statement.length());
-    s.append("Statement:\n");
-    s.append(statement);
-    s.append("\n");
-    s.append(vm->printVMsnapshot());
-    std::cout << s;
     if ((rs = vm->Execute()) != NULL)
     {
       mrs = new MdbResultSet();
@@ -112,6 +107,25 @@ MdbResultSet* MdbDatabase::ExecuteMQL(string statement)
     }
   }
   return NULL;
+}
+
+std::string MdbDatabase::ExplainMQL(string statement)
+{
+  mdbVirtualMachine *vm = (mdbVirtualMachine*)VM;
+  Parser *p = (Parser*)P;
+  mdbQueryResults *rs;
+  MdbResultSet *mrs;
+  string s;
+  if (vm != NULL)
+  {
+    p->Parse((uint8_t*) statement.c_str(), statement.length());
+    s.append("Statement:\n");
+    s.append(statement);
+    s.append("\n");
+    s.append(vm->generateVMsnapshot());
+    return s;
+  }
+  return "";
 }
 
 void MdbDatabase::Close()

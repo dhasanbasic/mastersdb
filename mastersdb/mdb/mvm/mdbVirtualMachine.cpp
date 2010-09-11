@@ -441,4 +441,118 @@ void mdbVirtualMachine::NewRecord()
   results->NewRecord();
 }
 
+string mdbVirtualMachine::generateVMsnapshot()
+{
+  string ret;
+  uint16 i;
+  uint32 len;
+  char buf[32];
+
+  ret.append("--------------------------------------\n");
+
+  ret.append("Program:\n\n");
+  for (i = 0; i < cp; i++)
+  {
+    _decode(i, ret);
+  }
+  ret.append("\n");
+
+  ret.append("Data:\n\n");
+  for (i = 0; i < MDB_VM_MEMORY_SIZE; i++)
+  {
+    if (memory[i] != NULL)
+    {
+      memset(buf, 0, 32);
+      len = *((uint32*)memory[i]);
+      sprintf(buf, "%u\t%u ", i, len);
+      ret.append(buf);
+      if (len > 0 && len < 32)
+      {
+        memset(buf, 0, 32);
+        strncpy(buf, memory[i] + 4, len);
+        ret.append(buf, len);
+      }
+      ret.append("\n");
+    }
+  }
+
+  ret.append("\n--------------------------------------\n");
+
+  return ret;
+}
+
+void mdbVirtualMachine::_decode(uint16 instr, string &s)
+{
+  uint8 _opcode = MVI_OPCODE(bytecode[instr]);
+  uint16 _data = MVI_DATA(bytecode[instr]);
+  uint32 cmp;
+  char _cdata[10];
+  int c;
+
+  c = sprintf(_cdata, "%u\t", instr);
+  s.append(_cdata, c);
+
+  switch ((mdbInstruction)_opcode) {
+    // No operation
+    case NOP:     s.append("NOP\t"); break;
+    // Stack operations
+    case PUSH:    s.append("PUSH\t"); break;
+    case POP:     s.append("POP\t"); break;
+    // Table operations
+    case CRTTBL:  s.append("CRTTBL\t"); break;
+    case LDTBL:   s.append("LDTBL\t"); break;
+    case SETTBL:  s.append("SETTBL\t"); break;
+    case DSCTBL:  s.append("DSCTBL\t"); break;
+    case RSTTBL:  s.append("RSTTBL\t"); break;
+    // Column operations
+    case NEWCOL:  s.append("NEWCOL\t"); break;
+    case CPYCOL:  s.append("CPYCOL\t"); break;
+    case CMP:
+      s.append("CMP\t");
+      cmp = *((uint32*)memory[_data]);
+      cmp = (cmp & 0x70000000)>>28;
+      switch ((mdbOperationType)cmp)
+      {
+        case MDB_LESS:              s.append("' <':"); break;
+        case MDB_GREATER:           s.append("' >':"); break;
+        case MDB_EQUAL:             s.append("' =':"); break;
+        case MDB_GREATER_OR_EQUAL:  s.append("'>=':"); break;
+        case MDB_LESS_OR_EQUAL:     s.append("'<=':"); break;
+        case MDB_NOT_EQUAL:         s.append("'<>':"); break;
+        default:
+          break;
+      }
+      break;
+        case BOOL:
+          s.append("BOOL\t");
+          cmp = *((uint32*)memory[_data]);
+          cmp = (cmp & 0x70000000)>>28;
+          switch ((mdbOperationType)cmp)
+          {
+            case MDB_AND:           s.append("'AND' : "); break;
+            case MDB_OR:            s.append("'OR'  : "); break;
+            default:
+              break;
+          }
+          break;
+    // Source record operations
+    case INSVAL:  s.append("INSVAL\t"); break;
+    case INSREC:  s.append("INSREC\t"); break;
+    case NXTREC:  s.append("NXTREC\t"); break;
+    case CPYREC:  s.append("CPYREC\t"); break;
+    case CPYVAL:  s.append("CPYVAL\t"); break;
+    case NEWREC:  s.append("NEWREC\t"); break;
+    // VM control operations
+    case JMP:     s.append("JMP\t"); break;
+    case JMPF:    s.append("JMPF\t"); break;
+    case HALT:    s.append("HALT\t"); break;
+    default:
+      break;
+  }
+
+  c = sprintf(_cdata, "%u", _data);
+  s.append(_cdata, c);
+  s.append("\n");
+}
+
 } // END of NAMESPACE
