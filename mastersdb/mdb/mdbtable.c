@@ -138,6 +138,7 @@ mdbError mdbCreateTable(
   fseek(db->file, 0L, SEEK_END);
   tbl.btree = ftell(db->file);
   T->meta.root_position = tbl.btree + sizeof(mdbBtreeMeta);
+  T->root->position = T->meta.root_position;
 
   fwrite(&(T->meta), sizeof(mdbBtreeMeta), 1, db->file);
   fwrite(T->root->data, T->nodeSize, 1, db->file);

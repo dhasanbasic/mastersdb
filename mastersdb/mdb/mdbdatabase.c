@@ -108,6 +108,7 @@ mdbError mdbCreateDatabase(mdbDatabase **db, const char *filename)
 
     l_db->indexes->meta.root_position =
         l_db->columns->meta.root_position + l_db->columns->nodeSize;
+    l_db->indexes->root->position = l_db->indexes->meta.root_position;
 
     /* writes all meta data to the empty database */
     fseek(l_db->file, 0, SEEK_SET);
