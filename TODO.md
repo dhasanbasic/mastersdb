@@ -1,50 +1,46 @@
------------------------------------
-  TODO list for MastersDB project
------------------------------------
-                      Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
+# TODO list for MastersDB project
 
-Active development
-------------------
-  * design and implement an object oriented wrapper around the database API
+## Last development (2010)
+   * design and implement an object oriented wrapper around the database API
   
-Pending
--------
-  * extend the dummy implementations of mbdBtree{Read,Write}Node functions
-  * design and implement the B+-tree structure (secondary indexes)
-  * implement SELECT (single-table, with WHERE)
-  * implement SELECT (multi-table, with WHERE)
+## Pending
+   * extend the dummy implementations of mbdBtree{Read,Write}Node functions
+   * design and implement the B+-tree structure (secondary indexes)
+   * implement `SELECT` (multi-table, with `WHERE`) - partially implemented
 
-Finished
---------
-  * implement a B-tree with "order" being the minimum children count
-    instead of minimum record count
-    
-  * implement support for following data types:
-    ** NAME     NAME LENGTH  HEADER  SIZE (B)  COMPARISON FUNCTION
-       INT-8    5            0       1         Standard C -> memcmp
-       INT-16   6            0       2         Standard C -> memcmp
-       INT-32   6            0       4         Standard C -> memcmp
-       FLOAT    5            0       4         assembly   -> CompareFloat
-       STRING   6            4       N*1 + 4   Standard C -> strncmp
-       
-    ** design and implement the missing type comparison functions:
-      - mdbCompareFloat
+## Finished
+   * implement `SELECT` (single-table, with `WHERE`)
+   * implement a B-tree with _order_ being the minimum children count instead of minimum record count
+   * implement support for following data types:
+     ```
+     NAME     NAME LENGTH  HEADER  SIZE (B)  COMPARISON FUNCTION
+     INT-8    5            0       1         Standard C -> memcmp
+     INT-16   6            0       2         Standard C -> memcmp
+     INT-32   6            0       4         Standard C -> memcmp
+     FLOAT    5            0       4         assembly   -> CompareFloat
+     STRING   6            4       N*1 + 4   Standard C -> strncmp
+     ```
+  * design and implement the missing type comparison functions:
+    - `mdbCompareFloat`
 
   * design a file format for storing many B-trees
-    # MastersDB format magic number & version              4 bytes
-    # MastersDB format header
-      - 16 entry free blocks table (8 bytes each)       (128 bytes)
-      --------------------------------------------------------------
-      - TOTAL                                            132 bytes
-    # B-tree for .TABLES table
-    # B-tree for .COLUMNS table
-    # B-tree for .INDEXES table
-    # B-tree's for user-defined tables
-    # ...
+    ```
+    MastersDB format magic number & version              4 bytes
+    MastersDB format header
+        16 entry free blocks table (8 bytes each)       (128 bytes)
+    --------------------------------------------------------------
+        TOTAL                                            132 bytes
+    ```
+    - B-tree for `.TABLES` table
+    - B-tree for `.COLUMNS` table
+    - B-tree for `.INDEXES` table
+    - B-tree's for user-defined tables
+    - ...
 
   * design and implement the three system tables
 
-    # .Tables
+    - .Tables
+      ```
       -----------------------------------------------------------------
       COLUMN   | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -52,9 +48,11 @@ Finished
       Fields   | INT-8  | N/A    | 1    | Number of columns
       B-tree   | INT-32 | N/A    | 4    | Pointer to B-tree descriptor
       -----------------------------------------------------------------
-      - Record size: 64 bytes
+      Record size: 64 bytes
+      ```
 
-    # .Columns
+    - .Columns
+      ```
       -----------------------------------------------------------------
       COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -64,9 +62,11 @@ Finished
       Indexed        | INT-8  | N/A    | 1    | Column is indexed
       Length         | INT-32 | N/A    | 4    | Maximum data length
       -----------------------------------------------------------------
-      - Record size: 128 bytes
+      Record size: 128 bytes
+      ```
 
-    # .Indexes
+    - .Indexes
+      ```
       -----------------------------------------------------------------
       COLUMN         | TYPE   | LENGTH | SIZE | DESCRIPTION
       -----------------------------------------------------------------
@@ -74,46 +74,42 @@ Finished
       B+ tree        | INT-32 | N/A    | 4    | Pointer to B+ tree
       -----------------------------------------------------------------
       - Record size: 68 bytes
+      ```
 
-  * implement mdbCreateDatabase for creating an empty MastersDB database  
+  * implement `mdbCreateDatabase* for creating an empty MastersDB database  
 
-  * implement mdbOpenDatabase for loading database meta data into memory
+  * implement `mdbOpenDatabase` for loading database meta data into memory
 
-  * implement mdbCloseDatabase for freeing used resources
+  * implement `mdbCloseDatabase` for freeing used resources
 
-  * re-factoring of whole database
+  * refactoring of whole database
 
   * ensure that the mdbBtree* functions are aware of the data type of the
     primary key
   
-  * implement table specific functions (mdbCreateTable, mdbLoadTable)
+  * implement table specific functions (`mdbCreateTable`, `mdbLoadTable`)
   
   * design a virtual machine for the SQL Parser/Engine
   
   * design an SQL Parser/Engine
   
-  * implement CREATE TABLE
+  * implement `CREATE TABLE` statement
   
-  * implement INSERT INTO
+  * implement `INSERT INTO` statement
 
-  * implement DESC/DESCRIBE
+  * implement `DESC/DESCRIBE` statement
   
-  * implement SELECT (single-table, without WHERE)
+  * implement `SELECT` (single-table, without `WHERE`)
 
-Optimizations
--------------
-  * General
-    - Assume preallocated BtreeNode structures in ReadNode/WriteNode
-      implementations.
+## Optimizations
+
+   * General
+     - Assume preallocated `BtreeNode` structures in `ReadNode`/`WriteNode` implementations.
             
-  * btree.c:
-    - Use binary search during insert/delete, instead of sequential.
-    - Write iterative versions of insert/delete.
+   * `btree.c`:
+     - Use binary search during insert/delete, instead of sequential.
+     - Write iterative versions of insert/delete.
 
-Ideas
------
-  * btree.h, btree.c
-    - Instead of using unsigned long as child pointer to a node, use void*,
-      store the child pointer size in the Btree structure and let ReadNode/
-      WriteNode take care of what to do with that pointer. With such
-      implementation, in-memory and in-file B-trees can be easier implemented.
+## Ideas
+   * `btree.h`, `btree.c`
+    - Instead of using `unsigned long` as child pointer to a node, use `void*`, store the child pointer size in the Btree structure and let `ReadNode`/`WriteNode` take care of what to do with that pointer. With such an implementation, in-memory and in-file B-trees can be easier implemented.
