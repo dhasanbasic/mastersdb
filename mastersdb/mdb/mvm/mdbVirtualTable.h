@@ -35,7 +35,7 @@
 #include <map>
 
 extern "C" {
-  #include "../mdb.h"
+  #include "mdb.h"
 }
 
 using namespace std;

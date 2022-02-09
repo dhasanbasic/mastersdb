@@ -28,8 +28,8 @@
  *    (for parameter count reduction).
  */
 
-#ifndef MDBBTREE_UTIL_H_INCLUDED
-#define MDBBTREE_UTIL_H_INCLUDED
+#ifndef MDBBTREE_UTIL_H_
+#define MDBBTREE_UTIL_H_
 
 /************************************************
  * Utility macros (for better code readability) *
@@ -89,4 +89,4 @@
 
 /**************************************************/
 
-#endif
+#endif /* MDBBTREE_UTIL_H_ */

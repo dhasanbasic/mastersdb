@@ -61,7 +61,7 @@
 #include <map>
 
 extern "C" {
-  #include "../mdb.h"
+  #include "mdb.h"
 }
 
 #include "mdbVirtualTable.h"

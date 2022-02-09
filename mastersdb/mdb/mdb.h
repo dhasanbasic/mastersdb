@@ -30,13 +30,18 @@
  *  Removed the mdbTable structure. It will be handled by the virtual machine.
 */
 
-#ifndef MDB_H_INCLUDED
-#define MDB_H_INCLUDED
+#ifndef MDB_H_
+#define MDB_H_
 
-#include "stdint.h"
-#include "malloc.h"
-#include "stdio.h"
-#include "string.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#ifndef __clang__
+	#include <malloc.h>
+#else
+	#include <stdlib.h>
+#endif
 
 /* MastersDB format signature (magic number) */
 #define MDB_MAGIC_NUMBER  0xEEDB
@@ -166,4 +171,4 @@ mdbError mdbLoadTable(
 /* ********************************************************* */
 
 
-#endif
+#endif /* MDB_H_ */

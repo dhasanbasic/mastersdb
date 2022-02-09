@@ -78,7 +78,7 @@ void MQLSelect::MapColumn(
     cTable = *table;
   }
 
-  // if the table name is encountered for the first time
+  // if the table name is encountered for the first tFirstname
   if ((t = tables.find(cTable)) == tables.end())
   {
     // creates a new table info

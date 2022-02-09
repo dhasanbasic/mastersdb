@@ -56,6 +56,7 @@
  */
 
 #include "mdbVirtualMachine.h"
+#include <locale.h>
 
 namespace MDB
 {

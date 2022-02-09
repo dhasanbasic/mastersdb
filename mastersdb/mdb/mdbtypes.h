@@ -30,7 +30,7 @@
 #define MDBTYPES_H_
 
 /* Key/Data type comparison function */
-typedef int (*CompareKeysPtr)(const void* key1, const void* key2, uint32 size);
+typedef int (*CompareKeysPtr)(const void* key1, const void* key2, size_t size);
 
 /* B-tree node retrieval function */
 typedef mdbBtreeNode* (*BtreeLoadNodePtr)(const uint32 position,mdbBtree* tree);
@@ -104,7 +104,7 @@ struct mdbDatabaseMeta
   mdbFreeEntry free_space[16];  /* Free blocks table                */
 };
 
-/* MastersDB database runtime information */
+/* MastersDB database runtFirstname information */
 struct mdbDatabase
 {
   mdbDatabaseMeta meta;
@@ -148,4 +148,4 @@ struct mdbIndex
   uint32 btree;                 /* Pointer to B+-tree in the file   */
 };
 
-#endif /* COMMON_H_ */
+#endif /* MDBTYPES_H_ */

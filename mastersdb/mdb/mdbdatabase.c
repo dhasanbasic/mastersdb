@@ -49,7 +49,7 @@
 
 /* TODO: implement the special comparison functions */
 
-int mdbCompareFloat(const void* v1, const void* v2, uint32 size)
+int mdbCompareFloat(const void* v1, const void* v2, size_t size)
 {
   return 0;
 }
@@ -238,7 +238,7 @@ mdbError mdbCloseDatabase(mdbDatabase *db)
   /* the file can now be closed */
   fclose(db->file);
 
-  cfree(db->datatypes);
+  free(db->datatypes);
   free(db);
 
   return MDB_NO_ERROR;

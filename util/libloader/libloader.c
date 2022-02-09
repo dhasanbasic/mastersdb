@@ -4,7 +4,7 @@
  *
  * A simple Win32/Linux dynamic library loader implementation
  *
- * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
+ * Copyright (C) 2010, Dinko Hasanbasic (dinko.hasanbasic@gmail.com)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,8 +26,13 @@
  */
 
 #include "libloader.h"
-#include <malloc.h>
 #include <string.h>
+
+#ifndef __clang__
+	#include <malloc.h>
+#else
+	#include <stdlib.h>
+#endif
 
 Library* OpenLibrary(const char* name) {
 

@@ -35,7 +35,7 @@
 #ifndef MQLSELECT_H_
 #define MQLSELECT_H_
 
-#include "../mvm/mdbVirtualMachine.h"
+#include "mvm/mdbVirtualMachine.h"
 
 #include <set>
 

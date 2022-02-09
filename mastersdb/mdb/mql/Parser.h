@@ -4,10 +4,10 @@
 #define COCO_PARSER_H__
 
 extern "C" {
-  #include "../mdb.h"
+  #include "mdb.h"
 }
 
-#include "../mvm/mdbVirtualMachine.h"
+#include "mvm/mdbVirtualMachine.h"
 #include "MQLSelect.h"
 
 #include <string>
