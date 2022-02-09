@@ -3,7 +3,7 @@
  *
  * Implementation of Masters DB table-specific functions
  *
- * Copyright (C) 2010, Dinko Hasanbasic (dinkoh@bih.net.ba)
+ * Copyright (C) 2010, Dinko Hasanbasic (dinko.hasanbasic@gmail.com)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
